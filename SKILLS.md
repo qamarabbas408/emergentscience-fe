@@ -57,3 +57,7 @@ Design tokens live in `src/index.css` under `@theme`:
 - New feature → verify `npm run build` passes → manually verify in `npm run dev`
 - Commit convention: conventional prefixes (`feat:`, `fix:`, `refactor:`)
 - Always run `npm run build` after changes before committing
+
+## Agent Practices 
+- Always follow React JS best practices before developing a feature https://react.dev/reference/react
+- Use Best Practices when designing UI - tailwind best practices https://tailwindcss.com/docs/installation/using-vite

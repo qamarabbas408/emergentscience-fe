@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { AuthModal, type AuthUser } from './AuthModal'
+
+const USER_KEY = 'es_user'
 
 const PRIMARY_LINKS = [
   { label: 'All Journals', href: '#' },
@@ -21,12 +24,39 @@ const AUTHOR_MENU = [
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [authorOpen, setAuthorOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem(USER_KEY)
+    if (stored) setUser(JSON.parse(stored))
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  const authenticate = (authUser: AuthUser) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(authUser))
+    setUser(authUser)
+    setToast(`Welcome back, ${authUser.name}! Signed in as ${authUser.role}.`)
+  }
+
+  const signOut = () => {
+    localStorage.removeItem(USER_KEY)
+    setUser(null)
+    setProfileOpen(false)
+  }
 
   return (
     <>
       {/* TIER 1: Utility micro-bar (scrolls away) */}
       <div className="relative z-40 border-b border-slate-100 bg-slate-50">
-        <div className="mx-auto flex h-7 max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-7 w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
               <span className="relative flex h-2 w-2">
@@ -55,7 +85,7 @@ export function Header() {
 
       {/* TIER 2: Main navigation bar (freezes on scroll) */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-3 px-4 sm:h-18 sm:px-6 sm:gap-6 lg:px-8">
+        <div className="mx-auto flex h-16 w-full items-center gap-3 px-4 sm:h-18 sm:px-6 sm:gap-6 lg:px-8">
           {/* Brand */}
           <a href="/" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="flex items-center gap-2">
             <span className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl">
@@ -150,12 +180,59 @@ export function Header() {
               Submit
             </a>
 
-            <a
-              href="#"
-              className="hidden rounded-full bg-slate-900 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 sm:block"
-            >
-              Sign In
-            </a>
+            {user ? (
+              <div className="relative" onMouseEnter={() => setProfileOpen(true)} onMouseLeave={() => setProfileOpen(false)}>
+                <button
+                  onClick={() => setProfileOpen((o) => !o)}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 py-1 pl-1 pr-3 transition-colors hover:border-slate-300"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                    {user.name.charAt(0)}
+                  </span>
+                  <span className="hidden text-left leading-tight sm:block">
+                    <span className="block text-xs font-bold text-slate-900">
+                      {user.name}
+                      <span className="ml-1 inline-flex h-2 w-2 rounded-full bg-[#A6CE39]" title="ORCID verified" />
+                    </span>
+                    <span className="block text-[10px] font-medium text-slate-500">{user.role}</span>
+                  </span>
+                  <ChevronDownIcon />
+                </button>
+                {profileOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-slate-200 bg-white shadow-lg">
+                    <div className="border-b border-slate-100 px-4 py-3">
+                      <p className="text-sm font-bold text-slate-900">{user.name}</p>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                        <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#A6CE39] text-[8px] font-black text-white">iD</span>
+                        {user.role} • {user.affiliation}
+                      </p>
+                    </div>
+                    {['Submit New Manuscript', 'My Submissions', 'Peer Review Forum'].map((item) => (
+                      <a
+                        key={item}
+                        href="#"
+                        className="block px-4 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-red-600"
+                      >
+                        {item}
+                      </a>
+                    ))}
+                    <button
+                      onClick={signOut}
+                      className="block w-full px-4 py-2.5 text-left text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="hidden rounded-full bg-slate-900 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 sm:block"
+              >
+                Sign In
+              </button>
+            )}
 
             {/* Mobile menu toggle */}
             <button
@@ -180,15 +257,26 @@ export function Header() {
                 {item.label}
               </a>
             ))}
-            <a
-              href="#"
-              className="block border-t border-slate-100 px-6 py-3 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 hover:text-red-600"
+            <button
+              onClick={() => {
+                setMobileOpen(false)
+                setAuthOpen(true)
+              }}
+              className="block w-full border-t border-slate-100 px-6 py-3 text-left text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 hover:text-red-600"
             >
               Sign In
-            </a>
+            </button>
           </nav>
         )}
       </header>
+
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onAuthenticate={authenticate} />}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white shadow-2xl">
+          {toast}
+        </div>
+      )}
     </>
   )
 }
