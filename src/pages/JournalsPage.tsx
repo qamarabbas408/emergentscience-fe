@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
+import { JournalCardSkeleton, Skeleton } from '../components/skeletons'
 import { appRoutes } from '../appRoutes'
 
 interface Journal {
@@ -330,13 +332,24 @@ function matchesScope(journal: Journal, scope: Scope, query: string): boolean {
   }
 }
 
+function useJournals() {
+  return useQuery({
+    queryKey: ['journals'],
+    queryFn: () =>
+      new Promise<Journal[]>((resolve) => {
+        setTimeout(() => resolve(JOURNALS), 900)
+      }),
+  })
+}
+
 export function JournalsPage() {
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState<Scope>('all')
   const [journalFilter, setJournalFilter] = useState('')
   const resultsRef = useRef<HTMLDivElement>(null)
+  const { data: journals, isPending } = useJournals()
 
-  const filtered = JOURNALS.filter(
+  const filtered = (journals ?? []).filter(
     (journal) =>
       matchesScope(journal, scope, query) &&
       (!journalFilter || journal.name === journalFilter),
@@ -490,9 +503,13 @@ export function JournalsPage() {
               <div ref={resultsRef} className="scroll-mt-20 border-t border-border bg-body/60 p-6 sm:p-10 lg:p-12">
                 <div className="flex flex-wrap items-center gap-3">
                   <h2 className="text-xl font-medium tracking-tight text-ink">All Journals</h2>
-                  <span className="rounded-full bg-primary-tint px-2.5 py-1 text-xs font-bold text-primary">
-                    {filtered.length} {filtered.length === 1 ? 'journal' : 'journals'}
-                  </span>
+                  {isPending ? (
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  ) : (
+                    <span className="rounded-full bg-primary-tint px-2.5 py-1 text-xs font-bold text-primary">
+                      {filtered.length} {filtered.length === 1 ? 'journal' : 'journals'}
+                    </span>
+                  )}
                   <div className="ml-auto flex items-center gap-2 text-xs text-ink-muted">
                     {query.trim() && (
                       <span className="hidden sm:inline">
@@ -515,15 +532,30 @@ export function JournalsPage() {
                 </div>
 
                 <div className="mt-8 grid gap-10 lg:grid-cols-3">
-                  <div className="space-y-5 lg:col-span-2">
-                    {filtered.length === 0 ? (
-                      <p className="rounded-card border border-border bg-surface p-10 text-center text-sm text-ink-muted">
-                        No matches to your query could be found. Try another search term.
-                      </p>
-                    ) : (
-                      filtered.map((journal) => <JournalCard key={journal.name} journal={journal} />)
-                    )}
-                  </div>
+                  {isPending ? (
+                    <div
+                      className="space-y-5 lg:col-span-2"
+                      role="status"
+                      aria-live="polite"
+                      aria-label="Loading journals"
+                    >
+                      {Array.from({ length: 4 }, (_, i) => (
+                        <JournalCardSkeleton key={i} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-5 lg:col-span-2">
+                      {filtered.length === 0 ? (
+                        <p className="rounded-card border border-border bg-surface p-10 text-center text-sm text-ink-muted">
+                          No matches to your query could be found. Try another search term.
+                        </p>
+                      ) : (
+                        filtered.map((journal) => (
+                          <JournalCard key={journal.name} journal={journal} />
+                        ))
+                      )}
+                    </div>
+                  )}
 
                   <aside className="lg:col-span-1">
                     <div className="rounded-card border border-border bg-surface p-6">

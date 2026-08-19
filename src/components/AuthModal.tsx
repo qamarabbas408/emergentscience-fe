@@ -3,6 +3,7 @@ import axios from 'axios'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLogin, useRegister, authKeys } from '../api/hooks'
 import { useToast } from './toast'
+import { Spinner } from './Spinner'
 import type { LoginRequest, RegisterRequest } from '../api/auth'
 import type { UserResource } from '../lib/apiClient'
 
@@ -257,9 +258,16 @@ function SignInForm({ onAuthenticated }: { onAuthenticated: (user: UserResource)
         <button
           type="submit"
           disabled={login.isPending}
-          className="flex w-full items-center justify-center rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {login.isPending ? 'Signing in…' : 'Sign In to EmergentSci.'}
+          {login.isPending ? (
+            <>
+              <Spinner className="text-white" />
+              Signing in…
+            </>
+          ) : (
+            'Sign In to EmergentSci.'
+          )}
         </button>
       </form>
 
@@ -351,9 +359,16 @@ function RegisterForm({ onAuthenticated }: { onAuthenticated: (user: UserResourc
       <button
         type="submit"
         disabled={register.isPending}
-        className="flex w-full items-center justify-center rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {register.isPending ? 'Creating account…' : 'Create Account'}
+        {register.isPending ? (
+          <>
+            <Spinner className="text-white" />
+            Creating account…
+          </>
+        ) : (
+          'Create Account'
+        )}
       </button>
       <QuickDemo onAuthenticated={onAuthenticated} />
     </form>
