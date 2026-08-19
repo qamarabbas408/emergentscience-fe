@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLogin, useRegister, authKeys } from '../api/hooks'
+import { useToast } from './toast'
 import type { LoginRequest, RegisterRequest } from '../api/auth'
 import type { UserResource } from '../lib/apiClient'
 
@@ -174,17 +175,17 @@ function SignInForm({ onAuthenticated }: { onAuthenticated: (user: UserResource)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const login = useLogin()
+  const toast = useToast()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
     try {
       const res = await login.mutateAsync({ email, password } as LoginRequest)
+      toast.success('Welcome back! You are signed in.')
       onAuthenticated(res.data)
     } catch (err) {
-      setError(getApiError(err))
+      toast.error(getApiError(err))
     }
   }
 
@@ -193,12 +194,14 @@ function SignInForm({ onAuthenticated }: { onAuthenticated: (user: UserResource)
       <button
         disabled={login.isPending}
         onClick={() => {
-          setError(null)
           login.mutate(
             { email: 'orcid.demo@emergentscience.org', password: 'orcid-demo' } as LoginRequest,
             {
-              onSuccess: (res) => onAuthenticated(res.data),
-              onError: (err) => setError(getApiError(err)),
+              onSuccess: (res) => {
+                toast.success('Welcome back! You are signed in.')
+                onAuthenticated(res.data)
+              },
+              onError: (err) => toast.error(getApiError(err)),
             },
           )
         }}
@@ -239,21 +242,12 @@ function SignInForm({ onAuthenticated }: { onAuthenticated: (user: UserResource)
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••••••"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
               required
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-slate-400 transition-colors hover:text-slate-600"
-              aria-label="Toggle password visibility"
-            >
-              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-            </button>
+            <ShowPasswordButton show={showPassword} onToggle={() => setShowPassword(!showPassword)} />
           </Field>
         </div>
-
-        {error && <p className="text-xs font-medium text-red-600">{error}</p>}
 
         <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
           <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300 accent-red-600" />
@@ -278,15 +272,16 @@ function RegisterForm({ onAuthenticated }: { onAuthenticated: (user: UserResourc
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [showConfirmation, setShowConfirmation] = useState(false)
   const register = useRegister()
+  const toast = useToast()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
     if (password !== passwordConfirmation) {
-      setError('Passwords do not match.')
+      toast.error('Passwords do not match.')
       return
     }
     try {
@@ -296,9 +291,10 @@ function RegisterForm({ onAuthenticated }: { onAuthenticated: (user: UserResourc
         password,
         password_confirmation: passwordConfirmation,
       } as RegisterRequest)
+      toast.success('Account created. Welcome to EmergentSci!')
       onAuthenticated(res.data)
     } catch (err) {
-      setError(getApiError(err))
+      toast.error(getApiError(err))
     }
   }
 
@@ -326,28 +322,32 @@ function RegisterForm({ onAuthenticated }: { onAuthenticated: (user: UserResourc
       <div className="grid grid-cols-2 gap-3">
         <Field icon="lock" label="Password">
           <input
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
             placeholder="••••••••"
-            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
           />
+          <ShowPasswordButton show={showPassword} onToggle={() => setShowPassword(!showPassword)} />
         </Field>
         <Field icon="lock" label="Confirm Password">
           <input
-            type="password"
+            type={showConfirmation ? 'text' : 'password'}
             value={passwordConfirmation}
             onChange={(e) => setPasswordConfirmation(e.target.value)}
             required
             minLength={8}
             placeholder="••••••••"
-            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+          />
+          <ShowPasswordButton
+            show={showConfirmation}
+            onToggle={() => setShowConfirmation(!showConfirmation)}
           />
         </Field>
       </div>
-      {error && <p className="text-xs font-medium text-red-600">{error}</p>}
       <button
         type="submit"
         disabled={register.isPending}
@@ -390,6 +390,7 @@ function SsoForm({ onAuthenticated }: { onAuthenticated: (user: UserResource) =>
 
 function QuickDemo({ onAuthenticated }: { onAuthenticated: (user: UserResource) => void }) {
   const demo = useDemoSignIn()
+  const toast = useToast()
   const presets = [
     { role: 'Author', affiliation: 'EPFL' },
     { role: 'Reviewer', affiliation: 'Cambridge' },
@@ -404,7 +405,14 @@ function QuickDemo({ onAuthenticated }: { onAuthenticated: (user: UserResource) 
         {presets.map((preset) => (
           <button
             key={preset.role}
-            onClick={() => demo.mutate(undefined, { onSuccess: () => onAuthenticated(getDemoUser()) })}
+            onClick={() =>
+              demo.mutate(undefined, {
+                onSuccess: () => {
+                  toast.success('Signed in as Demo Scholar.')
+                  onAuthenticated(getDemoUser())
+                },
+              })
+            }
             className="rounded-lg border border-slate-200 px-2 py-2 text-center text-[11px] font-semibold text-slate-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
           >
             {preset.role}
@@ -424,6 +432,26 @@ function getDemoUser(): UserResource {
     status: 'active',
     created_at: new Date().toISOString(),
   }
+}
+
+function ShowPasswordButton({
+  show,
+  onToggle,
+}: {
+  show: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:text-slate-600"
+      aria-label={show ? 'Hide password' : 'Show password'}
+      aria-pressed={show}
+    >
+      {show ? <EyeOffIcon /> : <EyeIcon />}
+    </button>
+  )
 }
 
 function Field({
