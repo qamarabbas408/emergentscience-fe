@@ -63,6 +63,7 @@ Reference: https://react.dev/reference/react
 - **Accessibility:** visible focus styles (`focus-visible:`), `aria-live`/`role="status"` for dynamic content (toasts, inline messages)
 - **i18n:** all user-facing strings go through `t()` from react-i18next; never hardcode copy in JSX
 - **Composition:** extract small presentational components over big config props; avoid over-spreading props
+- **Reuse, don't duplicate:** never copy UI that looks the same and serves the same role (icons, empty states, pills, search bars, cards, modals). Extract shared presentational components into `src/components/` and reuse them across pages instead of re-implementing them per page
 - **Performance:** reach for `useMemo`/`useCallback` when a child re-renders on a fresh object/function; avoid premature optimization
 - **Error boundaries** for sections that can throw (upload, render of external data)
 
