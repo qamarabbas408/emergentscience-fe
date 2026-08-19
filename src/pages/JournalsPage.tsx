@@ -1,9 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { JournalCardSkeleton, Skeleton } from '../components/skeletons'
 import { appRoutes } from '../appRoutes'
+
+type Category = 'science' | 'health' | 'engineering' | 'social' | 'humanities' | 'economics' | 'data'
 
 interface Journal {
   name: string
@@ -11,6 +13,7 @@ interface Journal {
   tagline: string
   editor: string
   color: string
+  category: Category
   isNew?: boolean
   sections?: number
   articles?: number
@@ -24,6 +27,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Artificial Intelligence',
     abbr: 'AI',
+    category: 'science',
     tagline:
       'Research on AI and large language models across healthcare, finance, law, and education, advancing innovation and interdisciplinary collaboration.',
     editor: 'Thomas Hartung, Johns Hopkins University, United States',
@@ -38,6 +42,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Aging Neuroscience',
     abbr: 'AN',
+    category: 'health',
     tagline:
       'One of the most cited journals in geriatrics and gerontology, with research on central nervous system aging.',
     editor: 'Thomas Wisniewski, NYU Grossman School of Medicine, United States',
@@ -52,6 +57,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Astronomy and Space Sciences',
     abbr: 'AS',
+    category: 'science',
     tagline:
       'Advancing our understanding of the universe, covering topics from planetary science to cosmology.',
     editor: 'Julio Navarro, University of Victoria, Canada',
@@ -66,6 +72,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Antibiotics',
     abbr: 'AB',
+    category: 'health',
     tagline:
       'Research exploring solutions to antibiotic resistance, development and delivery to improve the health of the global population.',
     editor: 'Stephen Henry Gillespie, University of St Andrews, United Kingdom',
@@ -80,6 +87,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Allergy',
     abbr: 'AL',
+    category: 'health',
     tagline:
       'One of the most cited journals in its field, advancing our understanding of allergic diseases and how to manage them.',
     editor: 'Nikolaos (Nikos) G Papadopoulos, University of Athens, Greece',
@@ -94,6 +102,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Agronomy',
     abbr: 'AG',
+    category: 'science',
     tagline:
       'Research focusing on cropping systems, sustainable agriculture and climate-resilient food production.',
     editor: 'John R Porter, University of Copenhagen, Denmark',
@@ -108,6 +117,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Applied Mathematics and Statistics',
     abbr: 'AM',
+    category: 'science',
     tagline:
       'Research on applied mathematics and statistics, driving innovation in science, engineering, finance, and data science.',
     editor: 'Charles K. Chui, Stanford University, United States',
@@ -122,6 +132,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Animal Science',
     abbr: 'ANI',
+    category: 'science',
     tagline:
       'Research on sustainable animal science, covering topics such as welfare, nutrition and genetics.',
     editor: 'Christine Janet Nicol, Royal Veterinary College, United Kingdom',
@@ -136,6 +147,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Acoustics',
     abbr: 'AC',
+    category: 'engineering',
     tagline:
       'Covering all areas of acoustics, including metamaterials, noise control, and sound perception.',
     editor: 'Massimo Ruzzene, University of Colorado Boulder, United States',
@@ -148,6 +160,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Adolescent Medicine',
     abbr: 'ADM',
+    category: 'health',
     tagline:
       'Exploring all aspects of adolescent medicine to improve the health of our growing population.',
     editor: 'Charles E Irwin Jr., University of California, San Francisco, United States',
@@ -160,6 +173,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Acta Biochimica Polonica',
     abbr: 'ABP',
+    category: 'health',
     tagline:
       'Open Access journal of the Polish Biochemical Society, publishing research on enzymology and metabolism.',
     editor: 'Polish Biochemical Society, Poland',
@@ -171,6 +185,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Aerospace Engineering',
     abbr: 'AE',
+    category: 'engineering',
     tagline:
       'Research exploring aerospace applications for civil and commercial aviation, as well as new and futuristic aerospace technologies.',
     editor: 'Ramesh K Agarwal, Washington University in St. Louis, United States',
@@ -182,6 +197,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Genome Editing',
     abbr: 'GE',
+    category: 'health',
     tagline:
       'CRISPR gene editing and precision genome engineering across medicine, agriculture, and synthetic biology.',
     editor: 'David Liu, Broad Institute of MIT and Harvard, United States',
@@ -197,6 +213,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Photovoltaics',
     abbr: 'PV',
+    category: 'engineering',
     tagline:
       'Perovskite photovoltaics, solar cell engineering, and next-generation renewable energy materials.',
     editor: 'Henry Snaith, University of Oxford, United Kingdom',
@@ -212,6 +229,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Quantum Computing',
     abbr: 'QC',
+    category: 'science',
     tagline:
       'Quantum computing, quantum algorithms, and the emerging foundations of quantum machine learning.',
     editor: 'Peter Knight, Imperial College London, United Kingdom',
@@ -227,6 +245,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Battery Technology',
     abbr: 'BT',
+    category: 'engineering',
     tagline:
       'Solid-state batteries, energy storage systems, and electrochemical materials for a clean energy future.',
     editor: 'Y. Shirley Meng, University of Chicago, United States',
@@ -242,6 +261,7 @@ const JOURNALS: Journal[] = [
   {
     name: 'Frontiers in Microbiome Research',
     abbr: 'MB',
+    category: 'health',
     tagline:
       'Microbiome therapy, host-microbe interactions, and the gut-brain axis across human and environmental health.',
     editor: 'Rob Knight, University of California San Diego, United States',
@@ -301,38 +321,31 @@ const TRENDING_TOPICS = [
   'Microbiome Therapy',
 ]
 
-type Scope = 'all' | 'articles' | 'journals' | 'topics' | 'authors'
 type SortBy = 'name' | 'impactFactor' | 'citescore' | 'articles'
-
-const SCOPES: { key: Scope; label: string }[] = [
-  { key: 'all', label: 'All Science' },
-  { key: 'articles', label: 'Articles' },
-  { key: 'journals', label: 'Journals' },
-  { key: 'topics', label: 'Research Topics' },
-  { key: 'authors', label: 'Authors & Editors' },
-]
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
-function matchesScope(journal: Journal, scope: Scope, query: string): boolean {
+type CategoryKey = Category | 'all'
+
+const CATEGORY_FILTERS: { key: CategoryKey; label: string }[] = [
+  { key: 'all', label: 'All Sciences' },
+  { key: 'science', label: 'Science' },
+  { key: 'health', label: 'Health' },
+  { key: 'engineering', label: 'Engineering' },
+  { key: 'social', label: 'Social Sciences' },
+  { key: 'humanities', label: 'Humanities' },
+  { key: 'economics', label: 'Economics & Business' },
+  { key: 'data', label: 'Data & Information' },
+]
+
+function matchesSearch(journal: Journal, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  switch (scope) {
-    case 'articles':
-      return journal.tagline.toLowerCase().includes(q)
-    case 'journals':
-      return journal.name.toLowerCase().includes(q)
-    case 'topics':
-      return journal.tagline.toLowerCase().includes(q)
-    case 'authors':
-      return journal.editor.toLowerCase().includes(q)
-    default:
-      return (
-        journal.name.toLowerCase().includes(q) ||
-        journal.tagline.toLowerCase().includes(q) ||
-        journal.editor.toLowerCase().includes(q)
-      )
-  }
+  return (
+    journal.name.toLowerCase().includes(q) ||
+    journal.tagline.toLowerCase().includes(q) ||
+    journal.editor.toLowerCase().includes(q)
+  )
 }
 
 function useJournals() {
@@ -347,11 +360,11 @@ function useJournals() {
 
 export function JournalsPage() {
   const [query, setQuery] = useState('')
-  const [scope, setScope] = useState<Scope>('all')
   const [journalFilter, setJournalFilter] = useState('')
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortBy>('name')
   const [viewDensity, setViewDensity] = useState<'cards' | 'compact'>('cards')
+  const [category, setCategory] = useState<CategoryKey>('all')
 
   const resultsRef = useRef<HTMLDivElement>(null)
   const { data: journals, isPending } = useJournals()
@@ -359,10 +372,11 @@ export function JournalsPage() {
   // Filter & Sorting Logic
   const filtered = useMemo(() => {
     let list = (journals ?? []).filter((journal) => {
-      const matchesSearch = matchesScope(journal, scope, query)
+      const matchesSearchQuery = matchesSearch(journal, query)
       const matchesDropdown = !journalFilter || journal.name === journalFilter
       const matchesLetter = !selectedLetter || journal.name.toUpperCase().startsWith(selectedLetter)
-      return matchesSearch && matchesDropdown && matchesLetter
+      const matchesCategory = category === 'all' || journal.category === category
+      return matchesSearchQuery && matchesDropdown && matchesLetter && matchesCategory
     })
 
     return list.sort((a, b) => {
@@ -377,15 +391,16 @@ export function JournalsPage() {
       }
       return a.name.localeCompare(b.name)
     })
-  }, [journals, scope, query, journalFilter, selectedLetter, sortBy])
+  }, [journals, query, journalFilter, selectedLetter, category, sortBy])
 
-  const hasFilter = Boolean(query.trim()) || journalFilter !== '' || selectedLetter !== null
+  const hasFilter =
+    Boolean(query.trim()) || journalFilter !== '' || selectedLetter !== null || category !== 'all'
 
   const resetFilters = () => {
     setQuery('')
-    setScope('all')
     setJournalFilter('')
     setSelectedLetter(null)
+    setCategory('all')
     setSortBy('name')
   }
 
@@ -421,19 +436,19 @@ export function JournalsPage() {
                 </p>
               </div>
 
-              {/* Scope Tabs */}
+              {/* Category Filter Pills */}
               <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
-                {SCOPES.map((s) => (
+                {CATEGORY_FILTERS.map((c) => (
                   <button
-                    key={s.key}
-                    onClick={() => setScope(s.key)}
+                    key={c.key}
+                    onClick={() => setCategory(c.key)}
                     className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
-                      scope === s.key
+                      category === c.key
                         ? 'bg-primary text-white shadow-xs'
                         : 'bg-body border border-border text-ink-secondary hover:border-primary hover:text-primary'
                     }`}
                   >
-                    {s.label}
+                    {c.label}
                   </button>
                 ))}
               </div>
@@ -495,7 +510,6 @@ export function JournalsPage() {
                     key={topic}
                     onClick={() => {
                       setQuery(topic)
-                      setScope('topics')
                       scrollToResults()
                     }}
                     className="rounded-full border border-border bg-body px-2.5 py-0.5 text-xs font-medium text-ink-secondary transition-colors hover:border-primary hover:bg-primary-tint hover:text-primary"
@@ -576,6 +590,12 @@ export function JournalsPage() {
                     {filtered.length} {filtered.length === 1 ? 'journal' : 'journals'}
                   </span>
                 )}
+                <span className="hidden sm:block h-5 w-px bg-border" />
+                <LetterFilterDropdown
+                  journals={journals ?? []}
+                  selectedLetter={selectedLetter}
+                  onChange={setSelectedLetter}
+                />
               </div>
 
               {/* Sorting & Density Controls */}
@@ -620,39 +640,6 @@ export function JournalsPage() {
                   </button>
                 )}
               </div>
-            </div>
-
-            {/* A-Z Alphabet Filter Strip */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-bold">
-              <button
-                onClick={() => setSelectedLetter(null)}
-                className={`px-2 py-1 rounded-md transition-colors ${
-                  selectedLetter === null
-                    ? 'bg-primary text-white'
-                    : 'text-ink-secondary hover:bg-body hover:text-primary'
-                }`}
-              >
-                All
-              </button>
-              {ALPHABET.map((char) => {
-                const hasMatching = (journals ?? []).some((j) => j.name.toUpperCase().startsWith(char))
-                return (
-                  <button
-                    key={char}
-                    disabled={!hasMatching}
-                    onClick={() => setSelectedLetter(char === selectedLetter ? null : char)}
-                    className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
-                      selectedLetter === char
-                        ? 'bg-primary text-white'
-                        : hasMatching
-                        ? 'text-ink-secondary hover:bg-body hover:text-primary'
-                        : 'text-ink-muted/30 cursor-not-allowed'
-                    }`}
-                  >
-                    {char}
-                  </button>
-                )
-              })}
             </div>
 
           </div>
@@ -886,9 +873,105 @@ function Metric({ label, value }: { label: string; value: string }) {
   )
 }
 
+function LetterFilterDropdown({
+  journals,
+  selectedLetter,
+  onChange,
+}: {
+  journals: Journal[]
+  selectedLetter: string | null
+  onChange: (letter: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const select = (letter: string | null) => {
+    onChange(letter)
+    setOpen(false)
+  }
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-body px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:border-primary hover:text-primary"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          By first letter
+        </span>
+        <span className={selectedLetter ? 'text-primary' : ''}>{selectedLetter ?? '(All)'}</span>
+        <ChevronDownIcon className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full z-30 mt-2 w-60 rounded-xl border border-border bg-white p-3 shadow-card"
+        >
+          <div className="flex flex-wrap items-center gap-1 text-[11px] font-bold">
+            <button
+              onClick={() => select(null)}
+              className={`h-7 px-2.5 rounded-md border transition-colors ${
+                selectedLetter === null
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-border text-ink-secondary hover:border-primary hover:text-primary'
+              }`}
+            >
+              (All)
+            </button>
+            {ALPHABET.map((char) => {
+              const hasMatching = journals.some((j) => j.name.toUpperCase().startsWith(char))
+              return (
+                <button
+                  key={char}
+                  disabled={!hasMatching}
+                  onClick={() => select(char)}
+                  className={`h-7 w-8 rounded-md transition-colors ${
+                    selectedLetter === char
+                      ? 'bg-primary text-white'
+                      : hasMatching
+                      ? 'text-ink-secondary hover:bg-body hover:text-primary'
+                      : 'cursor-not-allowed text-ink-muted/30'
+                  }`}
+                >
+                  {char}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* =========================================================================
    ICONS
    ========================================================================= */
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={`h-3.5 w-3.5 ${className ?? ''}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
 
 function SearchIcon() {
   return (
