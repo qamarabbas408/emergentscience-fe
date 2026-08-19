@@ -333,12 +333,31 @@ export function ArticlesPage() {
                       </button>
                     )}
                   </div>
-                  <button
-                    onClick={() => setPage(1)}
-                    className="shrink-0 rounded-full bg-red-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-red-700"
-                  >
-                    Search
-                  </button>
+                  <div className="flex items-center gap-2 border-t border-border pt-2 sm:border-t-0 sm:border-l sm:pl-3">
+                    <select
+                      value={selectedJournals.length === 1 ? selectedJournals[0] : ''}
+                      onChange={(e) => {
+                        setSelectedJournals(e.target.value ? [e.target.value] : [])
+                        setPage(1)
+                      }}
+                      className="max-w-[150px] truncate bg-transparent text-xs font-semibold text-ink-secondary outline-none cursor-pointer"
+                      aria-label="Filter by journal"
+                    >
+                      <option value="">All Journals</option>
+                      {JOURNAL_OPTIONS.map((journal) => (
+                        <option key={journal} value={journal}>
+                          {journal}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={() => setPage(1)}
+                      className="shrink-0 rounded-full bg-red-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-red-700"
+                    >
+                      Search
+                    </button>
+                  </div>
                 </div>
               </div>
 
