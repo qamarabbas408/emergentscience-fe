@@ -1,19 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { JournalCardSkeleton, Skeleton } from '../components/skeletons'
+import { EmptyState } from '../components/EmptyState'
 import { appRoutes } from '../appRoutes'
-
-type Category = 'science' | 'health' | 'engineering' | 'social' | 'humanities' | 'economics' | 'data'
+import {
+  fetchAllJournals,
+  type JournalIndexParams,
+  type JournalResource,
+} from '../api/journals'
+import {
+  disciplineCategoriesApi,
+  type DisciplineCategoryResource,
+} from '../api/disciplineCategories'
 
 interface Journal {
+  id?: number
   name: string
   abbr: string
   tagline: string
   editor: string
   color: string
-  category: Category
+  category: string
   isNew?: boolean
   sections?: number
   articles?: number
@@ -325,18 +334,60 @@ type SortBy = 'name' | 'impactFactor' | 'citescore' | 'articles'
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
-type CategoryKey = Category | 'all'
-
-const CATEGORY_FILTERS: { key: CategoryKey; label: string }[] = [
-  { key: 'all', label: 'All Sciences' },
-  { key: 'science', label: 'Science' },
-  { key: 'health', label: 'Health' },
-  { key: 'engineering', label: 'Engineering' },
-  { key: 'social', label: 'Social Sciences' },
-  { key: 'humanities', label: 'Humanities' },
-  { key: 'economics', label: 'Economics & Business' },
-  { key: 'data', label: 'Data & Information' },
+const CATEGORY_PALETTE = [
+  'bg-primary-tint text-primary',
+  'bg-red-50 text-red-600',
+  'bg-sky/10 text-sky',
+  'bg-amber-50 text-amber-600',
+  'bg-violet-50 text-violet-700',
+  'bg-emerald-50 text-emerald-700',
 ]
+
+const INITIAL_STOP_WORDS = new Set(['in', 'of', 'and', 'the', 'for', 'on', 'at', 'a', 'an', 'to', '&'])
+
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter((w) => !INITIAL_STOP_WORDS.has(w.toLowerCase()))
+    .slice(0, 3)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+}
+
+function colorForCategory(label: string): string {
+  let h = 0
+  for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) % 997
+  return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length]
+}
+
+function toJournal(resource: JournalResource): Journal {
+  const initials =
+    resource.title
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase() || 'J'
+  const category = resource.category?.trim() || 'Uncategorized'
+  return {
+    id: resource.id,
+    name: resource.title,
+    abbr: resource.abbreviation ?? initials,
+    tagline: resource.tagline ?? '',
+    editor: resource.field_chief_editor ?? '',
+    color: colorForCategory(category),
+    category,
+    isNew: resource.is_new,
+    sections: resource.sections_count,
+    articles: resource.articles_count,
+    views: resource.views != null ? resource.views.toLocaleString('en-US') : undefined,
+    citations: resource.citations ? resource.citations.toLocaleString('en-US') : undefined,
+    impactFactor: resource.impact_factor != null ? String(resource.impact_factor) : undefined,
+    citescore: resource.citescore != null ? String(resource.citescore) : undefined,
+  }
+}
 
 function matchesSearch(journal: Journal, query: string): boolean {
   const q = query.trim().toLowerCase()
@@ -348,35 +399,82 @@ function matchesSearch(journal: Journal, query: string): boolean {
   )
 }
 
-function useJournals() {
+function useDisciplineCategories() {
   return useQuery({
-    queryKey: ['journals'],
-    queryFn: () =>
-      new Promise<Journal[]>((resolve) => {
-        setTimeout(() => resolve(JOURNALS), 800)
-      }),
+    queryKey: ['discipline-categories'],
+    queryFn: async (): Promise<DisciplineCategoryResource[]> => {
+      const res = await disciplineCategoriesApi.index()
+      return res.data.data.filter((c) => c.is_active)
+    },
+  })
+}
+
+function useJournals(params: JournalIndexParams & { categoryId?: number | null }) {
+  return useQuery({
+    queryKey: ['journals', params],
+    queryFn: async (): Promise<Journal[]> => {
+      try {
+        if (params.categoryId != null) {
+          const res = await disciplineCategoriesApi.journals(params.categoryId)
+          return res.data.data.map(toJournal)
+        }
+        const resources = await fetchAllJournals({ search: params.search })
+        return resources.map(toJournal)
+      } catch {
+        return params.categoryId != null ? [] : JOURNALS
+      }
+    },
+    placeholderData: keepPreviousData,
   })
 }
 
 export function JournalsPage() {
   const [query, setQuery] = useState('')
-  const [journalFilter, setJournalFilter] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortBy>('name')
   const [viewDensity, setViewDensity] = useState<'cards' | 'compact'>('cards')
-  const [category, setCategory] = useState<CategoryKey>('all')
+  const [categoryName, setCategoryName] = useState<string | null>(null)
+  const [categoryId, setCategoryId] = useState<number | null>(null)
 
   const resultsRef = useRef<HTMLDivElement>(null)
-  const { data: journals, isPending } = useJournals()
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+const serverParams = useMemo<JournalIndexParams & { categoryId?: number | null }>(
+  () => ({
+    categoryId,
+    search: categoryId == null ? debouncedQuery.trim() || undefined : undefined,
+  }),
+  [categoryId, debouncedQuery],
+)
+
+const { data: journals, isPending } = useJournals(serverParams)
+const { data: categories } = useDisciplineCategories()
+
+const categoryOptions = useMemo(() => {
+  const apiCats = (categories ?? []).map((c) => ({ id: c.id, name: c.name }))
+  if (apiCats.length) return apiCats
+  const seen = new Set<string>()
+  ;(journals ?? []).forEach((j) => {
+    if (j.category) seen.add(j.category)
+  })
+  return Array.from(seen)
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ id: null, name }))
+}, [categories, journals])
 
   // Filter & Sorting Logic
   const filtered = useMemo(() => {
     let list = (journals ?? []).filter((journal) => {
       const matchesSearchQuery = matchesSearch(journal, query)
-      const matchesDropdown = !journalFilter || journal.name === journalFilter
       const matchesLetter = !selectedLetter || journal.name.toUpperCase().startsWith(selectedLetter)
-      const matchesCategory = category === 'all' || journal.category === category
-      return matchesSearchQuery && matchesDropdown && matchesLetter && matchesCategory
+      const matchesCategory =
+        categoryName === null || categoryId !== null || journal.category === categoryName
+      return matchesSearchQuery && matchesLetter && matchesCategory
     })
 
     return list.sort((a, b) => {
@@ -391,17 +489,24 @@ export function JournalsPage() {
       }
       return a.name.localeCompare(b.name)
     })
-  }, [journals, query, journalFilter, selectedLetter, category, sortBy])
+  }, [journals, query, selectedLetter, categoryName, categoryId, sortBy])
 
   const hasFilter =
-    Boolean(query.trim()) || journalFilter !== '' || selectedLetter !== null || category !== 'all'
+    Boolean(query.trim()) || selectedLetter !== null || categoryName !== null
 
   const resetFilters = () => {
     setQuery('')
-    setJournalFilter('')
+    setDebouncedQuery('')
     setSelectedLetter(null)
-    setCategory('all')
+    setCategoryName(null)
+    setCategoryId(null)
     setSortBy('name')
+  }
+
+  const selectCategory = (name: string | null, id: number | null) => {
+    setCategoryName(name)
+    setCategoryId(id)
+    setSelectedLetter(null)
   }
 
   const scrollToResults = () => resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -438,17 +543,28 @@ export function JournalsPage() {
 
               {/* Category Filter Pills */}
               <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
-                {CATEGORY_FILTERS.map((c) => (
+                <button
+                  onClick={() => selectCategory(null, null)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+                    categoryName === null
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'bg-body border border-border text-ink-secondary hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  All Sciences
+                </button>
+
+                {categoryOptions.map((c) => (
                   <button
-                    key={c.key}
-                    onClick={() => setCategory(c.key)}
+                    key={c.name}
+                    onClick={() => selectCategory(c.name, c.id)}
                     className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
-                      category === c.key
+                      categoryName === c.name
                         ? 'bg-primary text-white shadow-xs'
                         : 'bg-body border border-border text-ink-secondary hover:border-primary hover:text-primary'
                     }`}
                   >
-                    {c.label}
+                    {c.name}
                   </button>
                 ))}
               </div>
@@ -462,12 +578,15 @@ export function JournalsPage() {
                       type="text"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search 250,000+ peer-reviewed articles, topics, DOIs…"
+                      placeholder="Search journals by name, topic, or editor…"
                       className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-muted"
                     />
                     {query && (
                       <button
-                        onClick={() => setQuery('')}
+                        onClick={() => {
+                          setQuery('')
+                          setDebouncedQuery('')
+                        }}
                         className="rounded-full bg-body px-2 py-0.5 text-xs font-medium text-ink-muted hover:text-ink"
                       >
                         Clear
@@ -476,21 +595,11 @@ export function JournalsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-border pt-2 sm:pt-0 sm:pl-3">
-                    <select
-                      value={journalFilter}
-                      onChange={(e) => setJournalFilter(e.target.value)}
-                      className="max-w-[150px] truncate bg-transparent text-xs font-semibold text-ink-secondary outline-none cursor-pointer"
-                    >
-                      <option value="">All Journals</option>
-                      {JOURNALS.map((j) => (
-                        <option key={j.name} value={j.name}>
-                          {j.name}
-                        </option>
-                      ))}
-                    </select>
-
                     <button
-                      onClick={scrollToResults}
+                      onClick={() => {
+                        setSelectedLetter(null)
+                        scrollToResults()
+                      }}
                       className="rounded-full bg-red-600 px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-red-700 shadow-xs"
                     >
                       Search
@@ -510,6 +619,7 @@ export function JournalsPage() {
                     key={topic}
                     onClick={() => {
                       setQuery(topic)
+                      setSelectedLetter(null)
                       scrollToResults()
                     }}
                     className="rounded-full border border-border bg-body px-2.5 py-0.5 text-xs font-medium text-ink-secondary transition-colors hover:border-primary hover:bg-primary-tint hover:text-primary"
@@ -574,7 +684,7 @@ export function JournalsPage() {
         {/* =========================================================================
             2. JOURNALS DIRECTORY TOOLBAR & CONTENT STREAM
            ========================================================================= */}
-        <section ref={resultsRef} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-6 space-y-6">
+        <section ref={resultsRef} className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 scroll-mt-28 space-y-6">
           
           {/* CONTROL TOOLBAR (A-Z Filter + Sort + Density Switcher) */}
           <div className="rounded-2xl border border-border bg-white p-4 shadow-xs space-y-3">
@@ -619,6 +729,8 @@ export function JournalsPage() {
                     onClick={() => setViewDensity('cards')}
                     className={`p-1.5 rounded-md ${viewDensity === 'cards' ? 'bg-primary-tint text-primary' : 'text-ink-muted hover:text-ink'}`}
                     title="Detailed Card View"
+                    aria-label="Detailed card view"
+                    aria-pressed={viewDensity === 'cards'}
                   >
                     <GridIcon />
                   </button>
@@ -626,6 +738,8 @@ export function JournalsPage() {
                     onClick={() => setViewDensity('compact')}
                     className={`p-1.5 rounded-md ${viewDensity === 'compact' ? 'bg-primary-tint text-primary' : 'text-ink-muted hover:text-ink'}`}
                     title="Compact Row View"
+                    aria-label="Compact row view"
+                    aria-pressed={viewDensity === 'compact'}
                   >
                     <ListIcon />
                   </button>
@@ -656,24 +770,28 @@ export function JournalsPage() {
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
-                <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-xs space-y-3">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-tint text-primary">
-                    <SearchIcon />
-                  </div>
-                  <h3 className="text-base font-bold text-ink">No journals found</h3>
-                  <p className="text-xs text-ink-muted max-w-sm mx-auto">
-                    We could not find any publications matching your current search or letter filter.
-                  </p>
-                  <button
-                    onClick={resetFilters}
-                    className="mt-2 inline-flex items-center rounded-full bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-hover transition-colors"
-                  >
-                    Reset Filters & View All
-                  </button>
-                </div>
+                <EmptyState
+                  icon={<SearchIcon />}
+                  title="No journals found"
+                  description="We could not find any publications matching your current search, category, or letter filter."
+                  action={
+                    hasFilter ? (
+                      <button
+                        onClick={resetFilters}
+                        className="inline-flex rounded-full bg-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-primary-hover"
+                      >
+                        Reset Filters &amp; View All
+                      </button>
+                    ) : undefined
+                  }
+                />
               ) : (
                 filtered.map((journal) => (
-                  <JournalCard key={journal.name} journal={journal} isCompact={viewDensity === 'compact'} />
+                  <JournalCard
+                    key={journal.id ?? journal.name}
+                    journal={journal}
+                    isCompact={viewDensity === 'compact'}
+                  />
                 ))
               )}
             </div>
@@ -777,7 +895,7 @@ function JournalCard({ journal, isCompact }: { journal: Journal; isCompact?: boo
       <article className="group flex items-center justify-between gap-4 rounded-xl border border-border bg-white p-3.5 transition-all hover:border-primary/40 hover:shadow-xs">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-black ${journal.color}`}>
-            {journal.abbr}
+            {initialsOf(journal.name)}
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-ink group-hover:text-primary truncate transition-colors">
@@ -811,7 +929,7 @@ function JournalCard({ journal, isCompact }: { journal: Journal; isCompact?: boo
   return (
     <article className="group flex flex-col gap-4 rounded-2xl border border-border bg-white p-5 transition-all duration-200 hover:border-primary/50 hover:shadow-card sm:flex-row">
       <div className={`flex h-14 w-14 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl text-base sm:text-lg font-black tracking-tight shadow-2xs ${journal.color}`}>
-        {journal.abbr}
+        {initialsOf(journal.name)}
       </div>
 
       <div className="min-w-0 flex-1 space-y-2">

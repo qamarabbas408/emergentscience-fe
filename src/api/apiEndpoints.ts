@@ -8,4 +8,11 @@ export const apiEndpoints = {
     logout: `${API_PREFIX}/auth/logout`,
     me: `${API_PREFIX}/auth/me`,
   },
+  journals: {
+    index: `${API_PREFIX}/journals`,
+  },
+  disciplineCategories: {
+    index: `${API_PREFIX}/discipline-categories`,
+    journals: (id: number) => `${API_PREFIX}/discipline-categories/${id}/journals`,
+  },
 } as const
