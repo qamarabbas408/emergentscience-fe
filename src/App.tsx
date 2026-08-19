@@ -1,13 +1,10 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { appRoutes } from './appRoutes'
-import { Landing } from './pages/Landing'
+import { BrowserRouter } from 'react-router-dom'
+import { AppRoutes } from './routes'
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path={appRoutes.home} element={<Landing />} />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
   )
 }
