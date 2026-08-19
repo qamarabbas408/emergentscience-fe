@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-
-export interface AuthUser {
-  name: string
-  role: string
-  affiliation: string
-  orcidVerified: boolean
-}
+import axios from 'axios'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLogin, useRegister, authKeys } from '../api/hooks'
+import type { LoginRequest, RegisterRequest } from '../api/auth'
+import type { UserResource } from '../lib/apiClient'
 
 type Mode = 'signin' | 'register' | 'sso'
 
@@ -29,20 +27,49 @@ const BENEFITS = [
 
 const SSO_UNIVERSITIES = ['ETH Zürich', 'EPFL', 'Harvard', 'MIT', 'Oxford', 'Cambridge']
 
-const DEMO_PRESETS: AuthUser[] = [
-  { name: 'Dr. Elena Rostova', role: 'Author', affiliation: 'EPFL', orcidVerified: true },
-  { name: 'Dr. Sarah Jenkins', role: 'Reviewer', affiliation: 'Cambridge', orcidVerified: true },
-  { name: 'Prof. Kenji Takahashi', role: 'Editor', affiliation: 'Tokyo Tech', orcidVerified: true },
-]
+function getApiError(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const detail = err.response?.data
+    if (detail && typeof detail === 'object') {
+      const body = detail as Record<string, unknown>
+      if (typeof body.message === 'string') return body.message
+      if (typeof body.detail === 'string') return body.detail
+      if (Array.isArray(body.detail)) {
+        return body.detail.map((e) => (e as { msg?: string }).msg ?? 'Invalid input').join(', ')
+      }
+      if (body.errors && typeof body.errors === 'object') {
+        const messages = Object.values(body.errors as Record<string, unknown>).flat()
+        if (messages.length) return messages.join(', ')
+      }
+    }
+  }
+  return 'Something went wrong. Please try again.'
+}
+
+function useDemoSignIn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => Promise.resolve(),
+    onSuccess: () => {
+      const demo: UserResource = {
+        id: 999,
+        name: 'Demo Scholar',
+        email: 'demo@emergentscience.org',
+        status: 'active',
+        created_at: new Date().toISOString(),
+      }
+      queryClient.setQueryData(authKeys.me, demo)
+    },
+  })
+}
 
 interface AuthModalProps {
   onClose: () => void
-  onAuthenticate: (user: AuthUser) => void
+  onAuthenticated: (user: UserResource) => void
 }
 
-export function AuthModal({ onClose, onAuthenticate }: AuthModalProps) {
+export function AuthModal({ onClose, onAuthenticated }: AuthModalProps) {
   const [mode, setMode] = useState<Mode>('signin')
-  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,11 +78,6 @@ export function AuthModal({ onClose, onAuthenticate }: AuthModalProps) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-
-  const signIn = (user: AuthUser) => {
-    onAuthenticate(user)
-    onClose()
-  }
 
   return (
     <div
@@ -138,9 +160,9 @@ export function AuthModal({ onClose, onAuthenticate }: AuthModalProps) {
           </div>
 
           <div className="mt-6 flex-1">
-            {mode === 'signin' && <SignInForm showPassword={showPassword} setShowPassword={setShowPassword} onSignIn={signIn} />}
-            {mode === 'register' && <RegisterForm onSignIn={signIn} />}
-            {mode === 'sso' && <SsoForm onSignIn={signIn} />}
+            {mode === 'signin' && <SignInForm onAuthenticated={onAuthenticated} />}
+            {mode === 'register' && <RegisterForm onAuthenticated={onAuthenticated} />}
+            {mode === 'sso' && <SsoForm onAuthenticated={onAuthenticated} />}
           </div>
         </div>
       </div>
@@ -148,39 +170,38 @@ export function AuthModal({ onClose, onAuthenticate }: AuthModalProps) {
   )
 }
 
-function SignInForm({
-  showPassword,
-  setShowPassword,
-  onSignIn,
-}: {
-  showPassword: boolean
-  setShowPassword: (v: boolean) => void
-  onSignIn: (user: AuthUser) => void
-}) {
+function SignInForm({ onAuthenticated }: { onAuthenticated: (user: UserResource) => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const login = useLogin()
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSignIn({
-      name: 'Dr. Alex Morgan',
-      role: 'Author',
-      affiliation: 'ETH Zürich',
-      orcidVerified: true,
-    })
+    setError(null)
+    try {
+      const res = await login.mutateAsync({ email, password } as LoginRequest)
+      onAuthenticated(res.data)
+    } catch (err) {
+      setError(getApiError(err))
+    }
   }
 
   return (
     <>
       <button
-        onClick={() =>
-          onSignIn({
-            name: 'Dr. Alex Morgan',
-            role: 'Author',
-            affiliation: 'ETH Zürich',
-            orcidVerified: true,
-          })
-        }
+        disabled={login.isPending}
+        onClick={() => {
+          setError(null)
+          login.mutate(
+            { email: 'orcid.demo@emergentscience.org', password: 'orcid-demo' } as LoginRequest,
+            {
+              onSuccess: (res) => onAuthenticated(res.data),
+              onError: (err) => setError(getApiError(err)),
+            },
+          )
+        }}
         className="flex w-full items-center justify-center gap-3 rounded-xl border border-emerald-600/30 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-900 transition-colors hover:bg-emerald-100"
       >
         <OrcidBadge />
@@ -232,6 +253,8 @@ function SignInForm({
           </Field>
         </div>
 
+        {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+
         <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
           <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300 accent-red-600" />
           Keep me signed in for 30 days
@@ -239,57 +262,105 @@ function SignInForm({
 
         <button
           type="submit"
-          className="flex w-full items-center justify-center rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
+          disabled={login.isPending}
+          className="flex w-full items-center justify-center rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Sign In to EmergentSci.
+          {login.isPending ? 'Signing in…' : 'Sign In to EmergentSci.'}
         </button>
       </form>
 
-      <QuickDemo onSignIn={onSignIn} />
+      <QuickDemo onAuthenticated={onAuthenticated} />
     </>
   )
 }
 
-function RegisterForm({ onSignIn }: { onSignIn: (user: AuthUser) => void }) {
+function RegisterForm({ onAuthenticated }: { onAuthenticated: (user: UserResource) => void }) {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const register = useRegister()
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    if (password !== passwordConfirmation) {
+      setError('Passwords do not match.')
+      return
+    }
+    try {
+      const res = await register.mutateAsync({
+        name,
+        email,
+        password,
+        password_confirmation: passwordConfirmation,
+      } as RegisterRequest)
+      onAuthenticated(res.data)
+    } catch (err) {
+      setError(getApiError(err))
+    }
+  }
+
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        onSignIn({
-          name: 'Dr. Priya Sharma',
-          role: 'Author',
-          affiliation: 'University of Oxford',
-          orcidVerified: true,
-        })
-      }}
-      className="space-y-4"
-    >
+    <form onSubmit={submit} className="space-y-4">
       <Field icon="user" label="Full Name">
-        <input required placeholder="Dr. Jane Smith" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          placeholder="Dr. Jane Smith"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+        />
       </Field>
       <Field icon="mail" label="Academic Email">
-        <input type="email" required placeholder="name@university.edu" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          placeholder="name@university.edu"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+        />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field icon="lock" label="Password">
-          <input type="password" required placeholder="••••••••" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            placeholder="••••••••"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+          />
         </Field>
         <Field icon="lock" label="Confirm Password">
-          <input type="password" required placeholder="••••••••" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400" />
+          <input
+            type="password"
+            value={passwordConfirmation}
+            onChange={(e) => setPasswordConfirmation(e.target.value)}
+            required
+            minLength={8}
+            placeholder="••••••••"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+          />
         </Field>
       </div>
+      {error && <p className="text-xs font-medium text-red-600">{error}</p>}
       <button
         type="submit"
-        className="flex w-full items-center justify-center rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
+        disabled={register.isPending}
+        className="flex w-full items-center justify-center rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Create Account
+        {register.isPending ? 'Creating account…' : 'Create Account'}
       </button>
-      <QuickDemo onSignIn={onSignIn} />
+      <QuickDemo onAuthenticated={onAuthenticated} />
     </form>
   )
 }
 
-function SsoForm({ onSignIn }: { onSignIn: (user: AuthUser) => void }) {
+function SsoForm({ onAuthenticated }: { onAuthenticated: (user: UserResource) => void }) {
   return (
     <>
       <p className="mb-4 text-sm font-medium text-slate-600">
@@ -312,33 +383,47 @@ function SsoForm({ onSignIn }: { onSignIn: (user: AuthUser) => void }) {
           </button>
         ))}
       </div>
-      <QuickDemo onSignIn={onSignIn} />
+      <QuickDemo onAuthenticated={onAuthenticated} />
     </>
   )
 }
 
-function QuickDemo({ onSignIn }: { onSignIn: (user: AuthUser) => void }) {
+function QuickDemo({ onAuthenticated }: { onAuthenticated: (user: UserResource) => void }) {
+  const demo = useDemoSignIn()
+  const presets = [
+    { role: 'Author', affiliation: 'EPFL' },
+    { role: 'Reviewer', affiliation: 'Cambridge' },
+    { role: 'Editor', affiliation: 'Tokyo Tech' },
+  ]
   return (
     <div className="mt-6 border-t border-slate-100 pt-4">
       <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
         Quick demo sign-in
       </p>
       <div className="grid grid-cols-3 gap-2">
-        {DEMO_PRESETS.map((preset) => (
+        {presets.map((preset) => (
           <button
-            key={preset.name}
-            onClick={() => onSignIn(preset)}
+            key={preset.role}
+            onClick={() => demo.mutate(undefined, { onSuccess: () => onAuthenticated(getDemoUser()) })}
             className="rounded-lg border border-slate-200 px-2 py-2 text-center text-[11px] font-semibold text-slate-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
           >
             {preset.role}
-            <span className="block text-[10px] font-normal text-slate-400">
-              {preset.affiliation}
-            </span>
+            <span className="block text-[10px] font-normal text-slate-400">{preset.affiliation}</span>
           </button>
         ))}
       </div>
     </div>
   )
+}
+
+function getDemoUser(): UserResource {
+  return {
+    id: 999,
+    name: 'Demo Scholar',
+    email: 'demo@emergentscience.org',
+    status: 'active',
+    created_at: new Date().toISOString(),
+  }
 }
 
 function Field({
@@ -387,19 +472,6 @@ function FieldIcon({ name }: { name: string }) {
         <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="8" r="4" />
           <path d="M4 21a8 8 0 0 1 16 0" />
-        </svg>
-      )
-    case 'badge':
-      return (
-        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 2 3 6v6c0 5.5 3.8 9.7 9 10 5.2-.3 9-4.5 9-10V6z" />
-          <path d="m9 12 2 2 4-4" />
-        </svg>
-      )
-    case 'building':
-      return (
-        <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01" />
         </svg>
       )
     case 'orcid':
