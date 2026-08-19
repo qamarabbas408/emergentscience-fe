@@ -98,3 +98,4 @@ Reference: https://tailwindcss.com/docs/installation/using-vite
 - Follow the Tailwind v4 best practices above when designing UI: https://tailwindcss.com/docs/installation/using-vite
 - Check that UI additions reuse existing design tokens and shared constants before adding new ones
 - Keep `npm run build` and `npm run lint` green before finishing any task
+- **Minimize token usage to preserve context:** keep responses terse and direct; read files in parallel batches rather than one at a time; read only the specific files/lines needed instead of whole files; prefer targeted `grep`/`rg` for spot-checks over full reads; avoid re-reading files already seen this session; when output is long, use offsets to read only the changed regions
