@@ -356,6 +356,12 @@ function RegisterForm({ onAuthenticated }: { onAuthenticated: (user: UserResourc
           />
         </Field>
       </div>
+
+      <p className="text-[11px] font-medium leading-relaxed text-slate-500">
+        Password must be at least 8 characters and include mixed case (uppercase &amp; lowercase),
+        at least one number, and at least one symbol.
+      </p>
+
       <button
         type="submit"
         disabled={register.isPending}
