@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { toast } from '../components/toast'
 import { JournalPickerModal, type JournalOption } from '../components/JournalPickerModal'
+import { initialsOf } from '../lib/initials'
+import { articleTypesApi, type ArticleTypeResource } from '../api/articleTypes'
 
 type StepKey = 'details' | 'summary' | 'authors' | 'statements'
 
@@ -48,6 +51,14 @@ interface ArticleTypeOption {
   description: string
   wordLimit: number
   figuresLimit: number
+}
+
+interface ArticleTypeDetail {
+  name: string
+  description: string
+  wordLimit: number | null | undefined
+  summaryWords: number | null | undefined
+  figuresLimit: number | null | undefined
 }
 
 const STEP_ORDER: StepKey[] = ['details', 'summary', 'authors', 'statements']
@@ -454,9 +465,41 @@ const ARTICLE_TYPE_OPTIONS: ArticleTypeOption[] = [
     wordLimit: 3000,
     figuresLimit: 15,
   },
+  {
+    name: 'Mini Review',
+    description:
+      'Mini Reviews provide a concise synthesis of a specific topic, summarizing the most important recent findings and open questions.',
+    wordLimit: 5000,
+    figuresLimit: 5,
+  },
+  {
+    name: 'Methods',
+    description:
+      'Methods articles present novel experimental, computational, or analytical methods, including their validation and applications.',
+    wordLimit: 12000,
+    figuresLimit: 15,
+  },
+  {
+    name: 'Data Report',
+    description:
+      'Data Reports provide a brief description of a novel dataset or repository, its collection methodology, and potential applications.',
+    wordLimit: 3000,
+    figuresLimit: 5,
+  },
+  {
+    name: 'Policy and Practice Reviews',
+    description:
+      'Policy and Practice Reviews provide evidence-based analyses of current policies and practices within the field, with practical recommendations.',
+    wordLimit: 12000,
+    figuresLimit: 15,
+  },
 ]
 
 const ARTICLE_TYPES = ARTICLE_TYPE_OPTIONS.map((option) => option.name)
+
+const ARTICLE_TYPE_DETAILS: Record<string, ArticleTypeOption> = Object.fromEntries(
+  ARTICLE_TYPE_OPTIONS.map((option) => [option.name, option]),
+)
 
 const AFFILIATIONS = [
   'University of Karachi, Karachi, Pakistan',
@@ -477,20 +520,32 @@ const TITLE_CHAR_LIMIT = 500
 
 const STORAGE_KEY = 'es_submission_draft'
 
-let authorIdSeed = 1
-
 function createAuthor(): Author {
   return {
-    id: authorIdSeed++,
+    id: Date.now() + Math.random(),
     email: '',
-    title: 'Mr',
+    title: 'Dr',
     firstName: '',
     middleName: '',
     lastName: '',
-    isCorresponding: false,
+    isCorresponding: true,
     institutionalEmail: '',
     affiliations: [],
   }
+}
+
+function useArticleTypes() {
+  return useQuery({
+    queryKey: ['article-types'],
+    queryFn: async (): Promise<ArticleTypeResource[]> => {
+      try {
+        const res = await articleTypesApi.index()
+        return res.data.data
+      } catch {
+        return []
+      }
+    },
+  })
 }
 
 function createDefaultDraft(): SubmissionDraft {
@@ -501,7 +556,7 @@ function createDefaultDraft(): SubmissionDraft {
   lead.affiliations = ['University of Karachi, Karachi, Pakistan']
   return {
     journal: `${JOURNAL_OPTIONS[0].name} - ${JOURNAL_OPTIONS[0].specialties[0]}`,
-    articleType: ARTICLE_TYPES[0],
+    articleType: '',
     scopeStatement: '',
     title: '',
     summary: '',
@@ -583,6 +638,24 @@ export function SubmitPage() {
     statements: null,
   })
 
+  const { data: apiArticleTypes = [] } = useArticleTypes()
+  const articleTypeNames =
+    apiArticleTypes.length > 0 ? apiArticleTypes.map((t) => t.name) : ARTICLE_TYPES
+  const selectedApiType = draft.articleType
+    ? apiArticleTypes.find((t) => t.name === draft.articleType)
+    : undefined
+  const selectedMockType = draft.articleType ? ARTICLE_TYPE_DETAILS[draft.articleType] : undefined
+  const selectedArticleType = draft.articleType
+    ? {
+        name: selectedApiType?.name ?? selectedMockType?.name ?? draft.articleType,
+        description: selectedMockType?.description ?? '',
+        wordLimit: selectedApiType?.max_word_count ?? selectedMockType?.wordLimit,
+        summaryWords: selectedApiType?.max_summary_words ?? selectedMockType?.wordLimit,
+        figuresLimit: selectedApiType?.max_figures_tables ?? selectedMockType?.figuresLimit,
+      }
+    : undefined
+  const summaryWordLimit = selectedArticleType?.summaryWords ?? SUMMARY_WORD_LIMIT
+
   const update = <K extends keyof SubmissionDraft>(key: K, value: SubmissionDraft[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }))
 
@@ -623,7 +696,7 @@ export function SubmitPage() {
         draft.title.trim() !== '' &&
         draft.title.trim().length <= TITLE_CHAR_LIMIT &&
         wordCount(draft.summary) > 0 &&
-        wordCount(draft.summary) <= SUMMARY_WORD_LIMIT,
+        wordCount(draft.summary) <= summaryWordLimit,
       authors: draft.authors.some(isAuthorComplete),
       statements:
         draft.statements.notUnderConsideration &&
@@ -631,7 +704,7 @@ export function SubmitPage() {
         draft.statements.consents &&
         draft.statements.acceptsTerms,
     }),
-    [draft],
+    [draft, summaryWordLimit],
   )
 
   const quality = useMemo(() => {
@@ -641,7 +714,7 @@ export function SubmitPage() {
       isScopeStatementValid(draft.scopeStatement),
       hasEditableVersion(draft.uploads.manuscript) && hasPdfVersion(draft.uploads.manuscript),
       draft.title.trim() !== '' && draft.title.trim().length <= TITLE_CHAR_LIMIT,
-      wordCount(draft.summary) > 0 && wordCount(draft.summary) <= SUMMARY_WORD_LIMIT,
+      wordCount(draft.summary) > 0 && wordCount(draft.summary) <= summaryWordLimit,
       draft.authors.some(isAuthorComplete),
       draft.statements.notUnderConsideration,
       draft.statements.adheresPolicies,
@@ -650,7 +723,7 @@ export function SubmitPage() {
     ]
     const done = actions.filter(Boolean).length
     return { percent: Math.round((done / actions.length) * 100), done, total: actions.length }
-  }, [draft])
+  }, [draft, summaryWordLimit])
 
   const remainingActions = quality.total - quality.done
 
@@ -747,6 +820,8 @@ export function SubmitPage() {
               showErrors={attempted.details}
               onSave={persist}
               onSaveContinue={() => saveAndContinue('details')}
+              articleTypeNames={articleTypeNames}
+              selectedArticleType={selectedArticleType}
             />
           </WizardSection>
 
@@ -766,6 +841,7 @@ export function SubmitPage() {
               onPrevious={() => previous('summary')}
               onSave={persist}
               onSaveContinue={() => saveAndContinue('summary')}
+              summaryWordLimit={summaryWordLimit}
             />
           </WizardSection>
 
@@ -956,19 +1032,36 @@ function StepSubmissionDetails({
   showErrors,
   onSave,
   onSaveContinue,
+  articleTypeNames,
+  selectedArticleType,
 }: {
   draft: SubmissionDraft
   update: <K extends keyof SubmissionDraft>(key: K, value: SubmissionDraft[K]) => void
   showErrors: boolean
   onSave: () => void
   onSaveContinue: () => void
+  articleTypeNames: string[]
+  selectedArticleType: ArticleTypeDetail | undefined
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
-  const selectedJournal = JOURNAL_OPTIONS.find((j) => draft.journal.startsWith(j.name))
+  const [selectedJournal, setSelectedJournal] = useState<JournalOption | null>(() =>
+    JOURNAL_OPTIONS.find((j) => draft.journal.startsWith(j.name)) ?? null,
+  )
+
+  useEffect(() => {
+    if (!draft.journal) {
+      setSelectedJournal(null)
+      return
+    }
+    setSelectedJournal((current) => {
+      if (current?.name && draft.journal.startsWith(current.name)) return current
+      return JOURNAL_OPTIONS.find((j) => draft.journal.startsWith(j.name)) ?? current
+    })
+  }, [draft.journal])
+
   const selectedSpecialty = selectedJournal
     ? draft.journal.slice(selectedJournal.name.length).replace(/^\s*-\s*/, '')
     : ''
-  const selectedType = ARTICLE_TYPE_OPTIONS.find((option) => option.name === draft.articleType)
   const scopeWords = wordCount(draft.scopeStatement)
   const scopeLeft = Math.max(0, SCOPE_WORD_LIMIT - scopeWords)
   const scopeTooLong = scopeWords > SCOPE_WORD_LIMIT
@@ -983,7 +1076,10 @@ function StepSubmissionDetails({
           {selectedJournal && (
             <button
               type="button"
-              onClick={() => update('journal', '')}
+              onClick={() => {
+                setSelectedJournal(null)
+                update('journal', '')
+              }}
               aria-label="Remove selected journal"
               className="rounded-md p-1 text-ink-muted transition-colors hover:bg-red-50 hover:text-red-600"
             >
@@ -997,7 +1093,7 @@ function StepSubmissionDetails({
               <span
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-black shadow-2xs ${selectedJournal.color}`}
               >
-                {selectedJournal.abbr}
+                {initialsOf(selectedJournal.name)}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-ink">
@@ -1048,7 +1144,7 @@ function StepSubmissionDetails({
             }`}
           >
             {!draft.articleType && <option value="">Select article type…</option>}
-            {ARTICLE_TYPES.map((type) => (
+            {articleTypeNames.map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>
@@ -1064,10 +1160,12 @@ function StepSubmissionDetails({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl bg-primary-tint/40 p-4">
           <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
-            {selectedType ? selectedType.name : 'Article type'}
+            {selectedArticleType ? selectedArticleType.name : 'Article type'}
           </p>
           <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
-            {selectedType ? selectedType.description : 'Select an article type to see its description.'}
+            {selectedArticleType
+              ? selectedArticleType.description
+              : 'Select an article type to see its description.'}
           </p>
         </div>
         <div className="rounded-xl bg-body p-4">
@@ -1075,15 +1173,21 @@ function StepSubmissionDetails({
             Guidelines (Max. Limits)
           </p>
           <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
+            Word count:{' '}
+            <span className="font-bold text-ink">
+              {selectedArticleType?.wordLimit ?? '—'} words
+            </span>
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
             Summary length:{' '}
             <span className="font-bold text-ink">
-              {selectedType ? selectedType.wordLimit : '—'} words
+              {selectedArticleType?.summaryWords ?? '—'} words
             </span>
           </p>
           <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
             Figures and tables:{' '}
             <span className="font-bold text-ink">
-              {selectedType ? selectedType.figuresLimit : '—'}
+              {selectedArticleType?.figuresLimit ?? '—'}
             </span>
           </p>
         </div>
@@ -1201,10 +1305,11 @@ function StepSubmissionDetails({
 
       <JournalPickerModal
         open={pickerOpen}
-        journals={JOURNAL_OPTIONS}
+        fallbackJournals={JOURNAL_OPTIONS}
         onClose={() => setPickerOpen(false)}
         onSelect={(journal, specialty) => {
-          update('journal', `${journal.name} - ${specialty}`)
+          setSelectedJournal(journal)
+          update('journal', specialty ? `${journal.name} - ${specialty}` : journal.name)
           setPickerOpen(false)
         }}
       />
@@ -1459,6 +1564,7 @@ function StepManuscriptSummary({
   onPrevious,
   onSave,
   onSaveContinue,
+  summaryWordLimit,
 }: {
   draft: SubmissionDraft
   update: <K extends keyof SubmissionDraft>(key: K, value: SubmissionDraft[K]) => void
@@ -1466,12 +1572,13 @@ function StepManuscriptSummary({
   onPrevious: () => void
   onSave: () => void
   onSaveContinue: () => void
+  summaryWordLimit: number
 }) {
   const charsLeft = Math.max(0, TITLE_CHAR_LIMIT - draft.title.length)
   const words = wordCount(draft.summary)
-  const wordsLeft = Math.max(0, SUMMARY_WORD_LIMIT - words)
+  const wordsLeft = Math.max(0, summaryWordLimit - words)
   const titleTooLong = draft.title.length > TITLE_CHAR_LIMIT
-  const summaryTooLong = words > SUMMARY_WORD_LIMIT
+  const summaryTooLong = words > summaryWordLimit
 
   return (
     <div className="space-y-6">
@@ -1512,7 +1619,7 @@ function StepManuscriptSummary({
             <FieldError>Please fill this field to continue</FieldError>
           )}
           {summaryTooLong && (
-            <FieldError>Summary must be {SUMMARY_WORD_LIMIT} words or fewer</FieldError>
+            <FieldError>Summary must be {summaryWordLimit} words or fewer</FieldError>
           )}
         </div>
       </div>

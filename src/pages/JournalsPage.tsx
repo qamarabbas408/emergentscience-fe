@@ -5,6 +5,7 @@ import { Footer } from '../components/Footer'
 import { JournalCardSkeleton, Skeleton } from '../components/skeletons'
 import { EmptyState } from '../components/EmptyState'
 import { appRoutes } from '../appRoutes'
+import { initialsOf } from '../lib/initials'
 import {
   fetchAllJournals,
   type JournalIndexParams,
@@ -342,19 +343,6 @@ const CATEGORY_PALETTE = [
   'bg-violet-50 text-violet-700',
   'bg-emerald-50 text-emerald-700',
 ]
-
-const INITIAL_STOP_WORDS = new Set(['in', 'of', 'and', 'the', 'for', 'on', 'at', 'a', 'an', 'to', '&'])
-
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter((w) => !INITIAL_STOP_WORDS.has(w.toLowerCase()))
-    .slice(0, 3)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-}
-
 function colorForCategory(label: string): string {
   let h = 0
   for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) % 997

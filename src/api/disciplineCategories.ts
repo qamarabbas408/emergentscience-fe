@@ -17,9 +17,13 @@ export interface DisciplineCategoriesResponse {
   data: DisciplineCategoryResource[]
 }
 
+export interface DisciplineCategoryJournalsParams {
+  include?: string
+}
+
 export const disciplineCategoriesApi = {
   index: () =>
     apiClient.get<DisciplineCategoriesResponse>(apiEndpoints.disciplineCategories.index),
-  journals: (id: number) =>
-    apiClient.get<JournalResourceList>(apiEndpoints.disciplineCategories.journals(id)),
+  journals: (id: number, params: DisciplineCategoryJournalsParams = {}) =>
+    apiClient.get<JournalResourceList>(apiEndpoints.disciplineCategories.journals(id), { params }),
 }

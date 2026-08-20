@@ -1,6 +1,13 @@
 import { apiClient } from '../lib/apiClient'
 import { apiEndpoints } from './apiEndpoints'
 
+export interface JournalTopic {
+  id: number
+  slug: string
+  title: string
+  description: string | null
+}
+
 export interface JournalResource {
   id: number
   slug: string
@@ -8,6 +15,7 @@ export interface JournalResource {
   abbreviation: string | null
   tagline: string | null
   category: string | null
+  topics?: JournalTopic[]
   is_new: boolean
   field_chief_editor: string | null
   sections_count: number
@@ -44,6 +52,7 @@ export interface JournalIndexParams {
   sort?: string
   page?: number
   per_page?: number
+  include?: string
 }
 
 export const journalsApi = {

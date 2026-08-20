@@ -11,6 +11,9 @@ export const apiEndpoints = {
   journals: {
     index: `${API_PREFIX}/journals`,
   },
+  articleTypes: {
+    index: `${API_PREFIX}/article-types`,
+  },
   disciplineCategories: {
     index: `${API_PREFIX}/discipline-categories`,
     journals: (id: number) => `${API_PREFIX}/discipline-categories/${id}/journals`,
