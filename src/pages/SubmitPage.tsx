@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } 
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { toast } from '../components/toast'
+import { JournalPickerModal, type JournalOption } from '../components/JournalPickerModal'
 
 type StepKey = 'details' | 'summary' | 'authors' | 'statements'
 
@@ -42,14 +43,6 @@ interface SubmissionDraft {
   }
 }
 
-interface JournalOption {
-  name: string
-  abbr: string
-  section: string
-  description: string
-  color: string
-}
-
 interface ArticleTypeOption {
   name: string
   description: string
@@ -70,34 +63,337 @@ const JOURNAL_OPTIONS: JournalOption[] = [
   {
     name: 'Frontiers in Acoustics',
     abbr: 'AC',
-    section: 'Acoustic Materials, Noise Control and Sound Perception',
     color: 'bg-sky/10 text-sky',
+    domain: 'Engineering',
     description:
-      'The goal of the Acoustic Materials, Noise Control and Sound Perception section of Frontiers in Acoustics is to promote the exchange of knowledge and to advance the understanding of materials, structures and devices that shape how sound is generated, transmitted and perceived.',
+      'The goal of the Acoustics section of Frontiers in Acoustics is to promote the exchange of knowledge and to advance the understanding of materials, structures and devices that shape how sound is generated, transmitted and perceived.',
+    about:
+      'Frontiers in Acoustics is a multidisciplinary open-access journal devoted to the science of sound, from fundamental physics to applied acoustic engineering.',
+    editorialBoard: ['Massimo Ruzzene', 'Francesco Asdrubali', 'Olivier Doutres'],
+    specialties: [
+      'Acoustic Materials, Noise Control and Sound Perception',
+      'Acoustic Metamaterials',
+      'Acoustofluidics',
+      'Ultrasound Technologies',
+    ],
+  },
+  {
+    name: 'Frontiers in Adolescent Medicine',
+    abbr: 'ADM',
+    color: 'bg-violet-50 text-violet-600',
+    domain: 'Health',
+    description:
+      'A forum for research on the physical, mental and social health of adolescents, supporting healthy transitions from childhood to adulthood.',
+    about:
+      'Frontiers in Adolescent Medicine publishes evidence on adolescent health promotion, disease prevention and care across primary, community and hospital settings.',
+    editorialBoard: ['Susan M. Sawyer', 'George C. Patton', 'Diana M. L. Birch'],
+    specialties: [
+      'Adolescent Mental Health',
+      'Adolescent Nutrition and Eating Behaviors',
+      'Adolescent Sexual and Reproductive Health',
+      'Adolescent Chronic Disease and Transition to Adult Care',
+    ],
+  },
+  {
+    name: 'Frontiers in Aerospace Engineering',
+    abbr: 'AE',
+    color: 'bg-primary-tint text-primary',
+    domain: 'Engineering',
+    description:
+      'Advances the design, analysis and operation of aircraft and spacecraft, bridging aerodynamics, propulsion, structures and systems.',
+    about:
+      'Frontiers in Aerospace Engineering is a broad-scope journal covering the full lifecycle of aerospace systems, from conceptual design to flight testing and space operations.',
+    editorialBoard: ['Nigel G. Wright', 'Andrés Marcos', 'Christophe Airiau'],
+    specialties: [
+      'Aeroacoustics and Aerospace Sound',
+      'Aerodynamics and Vehicle Design',
+      'Propulsion and Space Systems',
+      'Aircraft Systems and Avionics',
+      'Thermal and Structural Dynamics',
+    ],
+  },
+  {
+    name: 'Frontiers in Aging',
+    abbr: 'AGI',
+    color: 'bg-amber-50 text-amber-600',
+    domain: 'Health',
+    description:
+      'Explores the biological, clinical and societal dimensions of aging, from molecular mechanisms to healthy longevity in populations.',
+    about:
+      'Frontiers in Aging provides a home for interdisciplinary aging research, linking basic geroscience with clinical geriatrics and social policy.',
+    editorialBoard: ['Thomas Wisniewski', 'Luigi Ferrucci', 'Nir Barzilai'],
+    specialties: [
+      'Aging and Cancer',
+      'Aging, Metabolism and Nutrition',
+      'Cellular and Molecular Aging',
+      'Clinical Trials in Aging',
+      'Digital Health and Aging',
+      'Geroscience',
+      'Musculoskeletal Aging',
+      'Social Gerontology and Policy',
+      'Translational Aging Research',
+    ],
+  },
+  {
+    name: 'Frontiers in Aging Neuroscience',
+    abbr: 'AN',
+    color: 'bg-red-50 text-red-600',
+    domain: 'Health',
+    description:
+      'Focuses on age-related changes in the nervous system, neurodegenerative diseases and strategies to preserve brain health across the lifespan.',
+    about:
+      'Frontiers in Aging Neuroscience publishes research on the mechanisms, biomarkers and interventions relevant to the aging brain and age-associated neurodegeneration.',
+    editorialBoard: ['Thomas Wisniewski', 'Aurora Savelli', 'David J. Irwin'],
+    specialties: [
+      'Brain Health and Aging',
+      'Cellular and Molecular Mechanisms of Aging',
+      'Clinical Neurodegeneration',
+      'Imaging Biomarkers of Aging',
+      'Neuroprotection and Repair',
+    ],
+  },
+  {
+    name: 'Frontiers in Agronomy',
+    abbr: 'AG',
+    color: 'bg-emerald-50 text-emerald-600',
+    domain: 'Science',
+    description:
+      'Advances sustainable crop production through research on cropping systems, soil health, water management and agricultural technology.',
+    about:
+      'Frontiers in Agronomy is a dedicated venue for agronomic science, connecting crop physiology, ecology and production with the sustainability agenda.',
+    editorialBoard: ['John R. Porter', 'Amir Kassam', 'Senthold Asseng'],
+    specialties: [
+      'Agroecology and Ecosystem Services',
+      'Crop Physiology and Production',
+      'Cropping Systems and Agronomy',
+      'Plant Nutrition and Soil Fertility',
+      'Sustainable Weed Management',
+      'Precision Agriculture',
+      'Water Management and Irrigation',
+    ],
+  },
+  {
+    name: 'Frontiers in Allergy',
+    abbr: 'AL',
+    color: 'bg-pink-50 text-pink-600',
+    domain: 'Health',
+    description:
+      'A hub for clinical and translational research on allergic diseases, immunopathology and novel therapeutic approaches.',
+    about:
+      'Frontiers in Allergy covers the spectrum of allergic disease — from epidemiology and mechanisms to diagnostics, prevention and biologic therapies.',
+    editorialBoard: ['Cezmi A. Akdis', 'Paul O’Byrne', 'Jörg Kleine-Tebbe'],
+    specialties: [
+      'Allergic Rhinitis and Sinusitis',
+      'Allergy and Autoimmunity',
+      'Asthma and Airway Inflammation',
+      'Atopic Dermatitis and Skin Allergy',
+      'Drug Allergy and Hypersensitivity',
+      'Food Allergy and Anaphylaxis',
+      'Insect Sting Allergy',
+      'Immunology of Allergic Disease',
+      'Pediatric Allergy',
+      'Precision Medicine in Allergy',
+      'Severe Asthma and Biologics',
+      'Urticaria and Angioedema',
+      'Venom Allergy and Immunotherapy',
+    ],
+  },
+  {
+    name: 'Frontiers in Amphibian and Reptile Science',
+    abbr: 'AR',
+    color: 'bg-lime-50 text-lime-600',
+    domain: 'Science',
+    description:
+      'Publishes research on the biology, ecology, evolution and conservation of amphibians and reptiles.',
+    about:
+      'Frontiers in Amphibian and Reptile Science is a dedicated forum for herpetological research, spanning behavior, physiology, taxonomy and conservation biology.',
+    editorialBoard: ['David A. Behler', 'Alexandra L. L. Debenedictis', 'Jodi Rowley'],
+    specialties: [
+      'Amphibian Conservation',
+      'Herpetology and Evolution',
+      'Reptile Physiology',
+      'Behavioral Herpetology',
+      'Disease Ecology',
+      'Taxonomy and Systematics',
+    ],
+  },
+  {
+    name: 'Frontiers in Analytical Science',
+    abbr: 'AS',
+    color: 'bg-cyan-50 text-cyan-600',
+    domain: 'Science',
+    description:
+      'Advances measurement science — novel instrumentation, separation techniques and bioanalytical methods — across chemistry and biology.',
+    about:
+      'Frontiers in Analytical Science showcases innovations in analytical chemistry and instrumentation, from mass spectrometry and spectroscopy to microfluidics and lab-on-chip devices.',
+    editorialBoard: ['Donald S. Gaddis', 'Carol L. M. Robinson', 'Alexander E. Zhukov'],
+    specialties: [
+      'Analytical Chemistry',
+      'Bioanalytical Methods',
+      'Environmental Analysis',
+      'Mass Spectrometry',
+      'Microfluidics and Lab-on-Chip',
+      'Spectroscopy and Imaging',
+      'Separation Science',
+    ],
+  },
+  {
+    name: 'Frontiers in Advanced Optical Technologies',
+    abbr: 'OT',
+    color: 'bg-indigo-50 text-indigo-600',
+    domain: 'Engineering',
+    description:
+      'Covers optical engineering and photonic devices, from metrology and integrated optics to quantum photonics.',
+    about:
+      'Frontiers in Advanced Optical Technologies bridges fundamental photonics research and engineered optical systems for industry and science.',
+    editorialBoard: ['Andrea Di Falco', 'Sylvain Gigan', 'Qing Gu'],
+    specialties: [
+      'Optical Metrology',
+      'Photonic Devices',
+      'Fiber and Integrated Optics',
+      'Quantum Photonics',
+    ],
   },
   {
     name: 'Frontiers in Artificial Intelligence',
     abbr: 'AI',
-    section: 'Machine Learning and Artificial Intelligence',
     color: 'bg-primary-tint text-primary',
+    domain: 'Science',
     description:
-      'Machine Learning and Artificial Intelligence aims at providing a platform to discuss state-of-the-art approaches in machine learning and artificial intelligence across healthcare, finance, law and education.',
+      'A platform for state-of-the-art AI research across machine learning, computer vision, NLP and the societal applications of intelligent systems.',
+    about:
+      'Frontiers in Artificial Intelligence publishes foundational and applied AI research, emphasizing reproducible methods and real-world impact.',
+    editorialBoard: ['Thomas Hartung', 'Angelo Cangelosi', 'Xiaohui Liu'],
+    specialties: [
+      'AI for Health and Healthcare',
+      'AI in Business and Economics',
+      'AI in Education',
+      'AI in Finance',
+      'AI in Law',
+      'AI in Medicine',
+      'AI in Mental Health',
+      'AI in Public Health',
+      'AI Safety and Ethics',
+      'Automated Reasoning and Logic',
+      'Machine Learning',
+      'Natural Language Processing',
+      'Computer Vision and Pattern Recognition',
+    ],
   },
   {
-    name: 'Frontiers in Neuroscience',
-    abbr: 'NS',
-    section: 'Neural Technology',
-    color: 'bg-red-50 text-red-600',
+    name: 'Frontiers in Applied Mathematics and Statistics',
+    abbr: 'AM',
+    color: 'bg-teal-50 text-teal-600',
+    domain: 'Science',
     description:
-      'Neural Technology covers the development and translation of neurotechnological interfaces, brain-computer interfaces and neuromodulation.',
+      'Advances mathematical and statistical theory and its applications across science, engineering, finance and the social sciences.',
+    about:
+      'Frontiers in Applied Mathematics and Statistics is a broad venue for applied mathematics, computational methods and data science.',
+    editorialBoard: ['Charles K. Chui', 'Nancy Flournoy', 'Tony F. Chan'],
+    specialties: [
+      'Applied Probability',
+      'Computational Mathematics',
+      'Data Science and Statistics',
+      'Mathematical Biology',
+      'Mathematical Physics',
+      'Numerical Analysis',
+      'Optimization and Control',
+      'Statistical Learning',
+    ],
   },
   {
-    name: 'Frontiers in Photovoltaics',
-    abbr: 'PV',
-    section: 'Advanced Photovoltaics',
-    color: 'bg-amber-50 text-amber-600',
+    name: 'Frontiers in Bioengineering and Biotechnology',
+    abbr: 'BB',
+    color: 'bg-blue-50 text-blue-600',
+    domain: 'Engineering',
     description:
-      'Advanced Photovoltaics publishes research on next-generation solar cell materials, device physics and large-area module manufacturing.',
+      'Publishes translational research at the interface of biology and engineering, from biomaterials and drug delivery to synthetic biology.',
+    about:
+      'Frontiers in Bioengineering and Biotechnology is a leading venue for biomedical engineering, bioprocess design and biomanufacturing innovation.',
+    editorialBoard: ['Rui L. Reis', 'Ranieri Cancedda', 'Jens Kurreck'],
+    specialties: [
+      'Biomaterials',
+      'Biosensors and Diagnostics',
+      'CRISPR and Genome Engineering',
+      'Drug Delivery',
+      'Metabolic Engineering',
+      'Microfluidics',
+      'Nanobiotechnology',
+      'Neural Interfaces',
+      'Regenerative Medicine',
+      'Synthetic Biology',
+      'Tissue Engineering',
+      'Vaccines and Immunoengineering',
+    ],
+  },
+  {
+    name: 'Frontiers in Computer Science',
+    abbr: 'CS',
+    color: 'bg-sky/10 text-sky',
+    domain: 'Science',
+    description:
+      'Covers the breadth of computer science — algorithms, systems, human-computer interaction, security and theoretical foundations.',
+    about:
+      'Frontiers in Computer Science is a broad-scope journal publishing research across the theory, systems and applications of computing.',
+    editorialBoard: ['Bruce M. Childers', 'Paolo Bellavista', 'Monica S. Lam'],
+    specialties: [
+      'AI and Machine Learning Systems',
+      'Algorithms and Complexity',
+      'Computational Intelligence',
+      'Cybersecurity and Privacy',
+      'Distributed Systems',
+      'Human-Computer Interaction',
+      'Programming Languages',
+      'Software Engineering',
+      'Theoretical Computer Science',
+    ],
+  },
+  {
+    name: 'Frontiers in Sociology',
+    abbr: 'SO',
+    color: 'bg-orange-50 text-orange-600',
+    domain: 'Humanities & Social Sciences',
+    description:
+      'Advances sociological theory and empirical research on inequality, social networks, culture and institutional change.',
+    about:
+      'Frontiers in Sociology is an interdisciplinary journal connecting sociological scholarship with pressing contemporary social questions.',
+    editorialBoard: ['Katherine S. Newman', 'Saskia Sassen', 'Frank Dobbin'],
+    specialties: [
+      'Political Sociology',
+      'Race, Gender and Inequality',
+      'Social Networks',
+      'Sociology of Science',
+      'Urban Sociology',
+    ],
+  },
+  {
+    name: 'Frontiers in Sustainability',
+    abbr: 'SU',
+    color: 'bg-green-50 text-green-600',
+    domain: 'Sustainability',
+    description:
+      'Explores pathways to a sustainable future — circular economies, climate adaptation, sustainable cities and resilient energy systems.',
+    about:
+      'Frontiers in Sustainability brings together natural, engineering and social sciences to address the climate and sustainability crisis.',
+    editorialBoard: ['Marko P. Hekkert', 'Diana Ürge-Vorsatz', 'Julia L. K. Steinberger'],
+    specialties: [
+      'Circular Economy',
+      'Climate Adaptation',
+      'Sustainable Cities and Communities',
+      'Sustainable Energy Systems',
+    ],
+  },
+  {
+    name: 'Frontiers for Young Minds',
+    abbr: 'YM',
+    color: 'bg-rose-50 text-rose-600',
+    domain: 'Young Minds',
+    description:
+      'Scientific articles written by scientists and reviewed by kids — making cutting-edge research accessible to young readers aged 8 to 15.',
+    about:
+      'Frontiers for Young Minds is a unique journal where research is written for and reviewed by children, fostering curiosity about science from an early age.',
+    editorialBoard: ['Robert T. Knight', 'Sara L. R. Burrows', 'Julianna M. Walker'],
+    specialties: ['A Young Scientist’s Guide to Discovery'],
   },
 ]
 
@@ -204,7 +500,7 @@ function createDefaultDraft(): SubmissionDraft {
   lead.lastName = 'Abbas'
   lead.affiliations = ['University of Karachi, Karachi, Pakistan']
   return {
-    journal: `${JOURNAL_OPTIONS[0].name} - ${JOURNAL_OPTIONS[0].section}`,
+    journal: `${JOURNAL_OPTIONS[0].name} - ${JOURNAL_OPTIONS[0].specialties[0]}`,
     articleType: ARTICLE_TYPES[0],
     scopeStatement: '',
     title: '',
@@ -667,10 +963,11 @@ function StepSubmissionDetails({
   onSave: () => void
   onSaveContinue: () => void
 }) {
-  const [journalOpen, setJournalOpen] = useState(false)
-  const selectedJournal = JOURNAL_OPTIONS.find(
-    (j) => `${j.name} - ${j.section}` === draft.journal,
-  )
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const selectedJournal = JOURNAL_OPTIONS.find((j) => draft.journal.startsWith(j.name))
+  const selectedSpecialty = selectedJournal
+    ? draft.journal.slice(selectedJournal.name.length).replace(/^\s*-\s*/, '')
+    : ''
   const selectedType = ARTICLE_TYPE_OPTIONS.find((option) => option.name === draft.articleType)
   const scopeWords = wordCount(draft.scopeStatement)
   const scopeLeft = Math.max(0, SCOPE_WORD_LIMIT - scopeWords)
@@ -705,7 +1002,7 @@ function StepSubmissionDetails({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-ink">
                   {selectedJournal.name}
-                  <span className="ml-1 font-medium text-ink-muted">- {selectedJournal.section}</span>
+                  <span className="ml-1 font-medium text-ink-muted">- {selectedSpecialty}</span>
                 </p>
                 <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-ink-secondary">
                   {selectedJournal.description}
@@ -713,40 +1010,17 @@ function StepSubmissionDetails({
               </div>
             </div>
           ) : (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setJournalOpen((o) => !o)}
-                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-left text-sm text-ink-muted transition-colors hover:border-primary"
-              >
-                Select a journal…
-              </button>
-              {journalOpen && (
-                <div className="absolute left-0 top-full z-10 mt-2 w-full overflow-hidden rounded-xl border border-border bg-white shadow-card">
-                  {JOURNAL_OPTIONS.map((journal) => (
-                    <button
-                      key={journal.name}
-                      type="button"
-                      onClick={() => {
-                        update('journal', `${journal.name} - ${journal.section}`)
-                        setJournalOpen(false)
-                      }}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-body"
-                    >
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-black ${journal.color}`}
-                      >
-                        {journal.abbr}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-xs font-bold text-ink">{journal.name}</span>
-                        <span className="block text-[11px] text-ink-muted">{journal.section}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-white px-4 py-3 text-left text-sm text-ink-muted transition-all duration-200 hover:border-primary hover:text-ink"
+            >
+              <span className="flex items-center gap-2.5">
+                <SearchIcon />
+                Search and select...
+              </span>
+              <ChevronDownIcon open={false} />
+            </button>
           )}
         </div>
       </div>
@@ -924,6 +1198,16 @@ function StepSubmissionDetails({
         hideSave
         hideGuide
       />
+
+      <JournalPickerModal
+        open={pickerOpen}
+        journals={JOURNAL_OPTIONS}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(journal, specialty) => {
+          update('journal', `${journal.name} - ${specialty}`)
+          setPickerOpen(false)
+        }}
+      />
     </div>
   )
 }
@@ -1053,6 +1337,15 @@ function FileTextIcon() {
     <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+    </svg>
+  )
+}
+
+function SearchIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
     </svg>
   )
 }
