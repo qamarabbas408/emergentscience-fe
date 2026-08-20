@@ -65,6 +65,7 @@ export function JournalPickerModal({
   const [tab, setTab] = useState<DetailTab>('journal')
   const [specialty, setSpecialty] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -107,11 +108,105 @@ export function JournalPickerModal({
     setExpanded(journal)
     setTab('journal')
     setSpecialty(journal.specialties[0] ?? '')
+    requestAnimationFrame(() =>
+      detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    )
   }
 
   const confirm = () => {
     if (activeExpanded && specialty) onSelect(activeExpanded, specialty)
   }
+
+  const renderDetailPane = (journal: JournalOption) => (
+    <div ref={detailRef} className="list-pop rounded-2xl border border-border bg-white p-5 shadow-card">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black shadow-2xs ${journal.color}`}
+          >
+            {journal.abbr}
+          </span>
+          <div>
+            <p className="text-base font-bold text-ink">{journal.name}</p>
+            <p className="text-[11px] font-semibold text-ink-muted">
+              {journal.specialties.length} {journal.specialties.length === 1 ? 'specialty' : 'specialties'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setExpanded(null)}
+          aria-label="Collapse journal details"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
+        >
+          <XIcon />
+        </button>
+      </div>
+
+      <div className="mt-4 flex gap-5 border-b border-border">
+        {(
+          [
+            ['journal', 'Journal'],
+            ['about', 'About'],
+            ['board', 'Editorial Board'],
+          ] as [DetailTab, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`-mb-px border-b-2 pb-2 text-xs font-bold transition-colors ${
+              tab === key ? 'border-primary text-primary' : 'border-transparent text-ink-muted hover:text-ink'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 min-h-[60px] text-xs leading-relaxed text-ink-secondary">
+        {tab === 'journal' && journal.description}
+        {tab === 'about' && journal.about}
+        {tab === 'board' && (
+          <ul className="list-disc space-y-1 pl-4">
+            {journal.editorialBoard.map((editor) => (
+              <li key={editor}>{editor}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <p className="mt-4 text-xs font-bold uppercase tracking-wider text-ink">Select your specialty</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {journal.specialties.map((s) => (
+          <label
+            key={s}
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+              specialty === s
+                ? 'border-primary bg-primary-tint text-primary'
+                : 'border-border text-ink-secondary hover:border-primary/40'
+            }`}
+          >
+            <input
+              type="radio"
+              name="specialty"
+              checked={specialty === s}
+              onChange={() => setSpecialty(s)}
+              className="accent-red-600"
+            />
+            {s}
+          </label>
+        ))}
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={confirm}
+          className="rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
+        >
+          Select
+        </button>
+      </div>
+    </div>
+  )
 
   if (!open) return null
 
@@ -182,102 +277,6 @@ export function JournalPickerModal({
 
         {/* Scrollable body */}
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-6 sm:px-8">
-          {activeExpanded && (
-            <div className="list-pop rounded-2xl border border-border bg-white p-5 shadow-card">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black shadow-2xs ${activeExpanded.color}`}
-                  >
-                    {activeExpanded.abbr}
-                  </span>
-                  <div>
-                    <p className="text-base font-bold text-ink">{activeExpanded.name}</p>
-                    <p className="text-[11px] font-semibold text-ink-muted">
-                      {activeExpanded.specialties.length}{' '}
-                      {activeExpanded.specialties.length === 1 ? 'specialty' : 'specialties'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setExpanded(null)}
-                  aria-label="Collapse journal details"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
-                >
-                  <XIcon />
-                </button>
-              </div>
-
-              <div className="mt-4 flex gap-5 border-b border-border">
-                {(
-                  [
-                    ['journal', 'Journal'],
-                    ['about', 'About'],
-                    ['board', 'Editorial Board'],
-                  ] as [DetailTab, string][]
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setTab(key)}
-                    className={`-mb-px border-b-2 pb-2 text-xs font-bold transition-colors ${
-                      tab === key
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-ink-muted hover:text-ink'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-3 min-h-[60px] text-xs leading-relaxed text-ink-secondary">
-                {tab === 'journal' && activeExpanded.description}
-                {tab === 'about' && activeExpanded.about}
-                {tab === 'board' && (
-                  <ul className="list-disc space-y-1 pl-4">
-                    {activeExpanded.editorialBoard.map((editor) => (
-                      <li key={editor}>{editor}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <p className="mt-4 text-xs font-bold uppercase tracking-wider text-ink">
-                Select your specialty
-              </p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {activeExpanded.specialties.map((s) => (
-                  <label
-                    key={s}
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                      specialty === s
-                        ? 'border-primary bg-primary-tint text-primary'
-                        : 'border-border text-ink-secondary hover:border-primary/40'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="specialty"
-                      checked={specialty === s}
-                      onChange={() => setSpecialty(s)}
-                      className="accent-red-600"
-                    />
-                    {s}
-                  </label>
-                ))}
-              </div>
-
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={confirm}
-                  className="rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
-                >
-                  Select
-                </button>
-              </div>
-            </div>
-          )}
-
           {filtered.length === 0 ? (
             <EmptyState
               icon={<SearchIcon />}
@@ -289,36 +288,38 @@ export function JournalPickerModal({
               key={`${domain}-${query.trim().toLowerCase()}`}
               className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
             >
-              {filtered.map((j) => (
-                <button
-                  key={j.name}
-                  onClick={() => expand(j)}
-                  className={`list-pop group overflow-hidden rounded-xl border bg-white text-left transition-all duration-200 hover:border-primary/40 hover:shadow-lg active:scale-[0.98] ${
-                    activeExpanded?.name === j.name
-                      ? 'border-primary ring-2 ring-primary/20'
-                      : 'border-border'
-                  }`}
-                >
-                  <span
-                    className={`block h-24 w-full bg-gradient-to-br ${bannerFor(j.abbr)}`}
+              {filtered.map((j) =>
+                activeExpanded?.name === j.name ? (
+                  <div key={j.name} className="sm:col-span-2 lg:col-span-3">
+                    {renderDetailPane(j)}
+                  </div>
+                ) : (
+                  <button
+                    key={j.name}
+                    onClick={() => expand(j)}
+                    className={`list-pop group overflow-hidden rounded-xl border bg-white text-left transition-all duration-200 hover:border-primary/40 hover:shadow-lg active:scale-[0.98] ${
+                      activeExpanded?.name === j.name
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : 'border-border'
+                    }`}
                   >
-                    <span className="flex h-full items-end justify-between p-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 text-xs font-black text-white backdrop-blur-sm">
-                        {j.abbr}
-                      </span>
-                      <span className="text-3xl font-black leading-none text-white/30">
-                        {j.abbr}
+                    <span className={`block h-24 w-full bg-gradient-to-br ${bannerFor(j.abbr)}`}>
+                      <span className="flex h-full items-end justify-between p-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/20 text-xs font-black text-white backdrop-blur-sm">
+                          {j.abbr}
+                        </span>
+                        <span className="text-3xl font-black leading-none text-white/30">{j.abbr}</span>
                       </span>
                     </span>
-                  </span>
-                  <span className="flex items-center justify-between gap-2 p-3">
-                    <span className="min-w-0 text-sm font-bold text-ink">{j.name}</span>
-                    <span className="shrink-0 rounded-full bg-primary-tint px-2.5 py-1 text-[11px] font-bold text-primary">
-                      {j.specialties.length} {j.specialties.length === 1 ? 'specialty' : 'specialties'}
+                    <span className="flex items-center justify-between gap-2 p-3">
+                      <span className="min-w-0 text-sm font-bold text-ink">{j.name}</span>
+                      <span className="shrink-0 rounded-full bg-primary-tint px-2.5 py-1 text-[11px] font-bold text-primary">
+                        {j.specialties.length} {j.specialties.length === 1 ? 'specialty' : 'specialties'}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              ))}
+                  </button>
+                ),
+              )}
             </div>
           )}
         </div>
