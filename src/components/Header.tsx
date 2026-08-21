@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AuthModal } from './AuthModal'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -56,7 +56,18 @@ export function Header() {
     </Link>
   )
 
-  const hubLink = 'border-b-2 border-transparent text-xs font-bold text-slate-800 transition-colors hover:border-red-600 hover:text-red-600'
+  const { pathname } = useLocation()
+  const navHrefs = new Set<string>(navLinks.map((link) => link.href))
+  const isAuthorSection = authorMenu.some(
+    (item) => item.href === pathname && !navHrefs.has(item.href),
+  )
+
+  const hubLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `border-b-2 text-xs font-bold transition-colors ${
+      isActive
+        ? 'border-red-600 text-red-600'
+        : 'border-transparent text-slate-800 hover:border-red-600 hover:text-red-600'
+    }`
 
   return (
     <>
@@ -96,18 +107,22 @@ export function Header() {
           {/* Primary hub links */}
           <nav className="ml-6 hidden flex-1 items-center gap-5 lg:flex">
             {navLinks.slice(0, 2).map((link) => (
-              <Link key={link.label} to={link.href} className={hubLink}>
+              <NavLink key={link.label} to={link.href} className={hubLinkClass}>
                 {link.label}
-              </Link>
+              </NavLink>
             ))}
 
             {navLinks.slice(2, 3).map((link) => (
-              <Link key={link.label} to={link.href} className={`${hubLink} flex items-center gap-1.5`}>
+              <NavLink
+                key={link.label}
+                to={link.href}
+                className={({ isActive }) => `${hubLinkClass({ isActive })} flex items-center gap-1.5`}
+              >
                 {link.label}
                 <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
                   {link.tag}
                 </span>
-              </Link>
+              </NavLink>
             ))}
 
             {/* For Authors dropdown */}
@@ -118,7 +133,7 @@ export function Header() {
             >
               <button
                 onClick={() => setAuthorOpen((o) => !o)}
-                className={`${hubLink} flex items-center gap-1`}
+                className={`${hubLinkClass({ isActive: isAuthorSection })} flex items-center gap-1`}
               >
                 For Authors
                 <ChevronDownIcon />
@@ -139,9 +154,9 @@ export function Header() {
             </div>
 
             {navLinks.slice(4).map((link) => (
-              <Link key={link.label} to={link.href} className={hubLink}>
+              <NavLink key={link.label} to={link.href} className={hubLinkClass}>
                 {link.label}
-              </Link>
+              </NavLink>
             ))}
           </nav>
 
@@ -234,14 +249,20 @@ export function Header() {
         {mobileOpen && (
           <nav className="border-t border-slate-100 bg-white lg:hidden">
             {[...navLinks, ...authorMenu].map((item) => (
-              <Link
+              <NavLink
                 key={item.label}
                 to={item.href}
                 onClick={() => setMobileOpen(false)}
-                className="block px-6 py-3 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 hover:text-red-600"
+                className={({ isActive }) =>
+                  `block px-6 py-3 text-sm font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-red-50 text-red-600'
+                      : 'text-slate-800 hover:bg-slate-50 hover:text-red-600'
+                  }`
+                }
               >
                 {item.label}
-              </Link>
+              </NavLink>
             ))}
             <button
               onClick={() => {

@@ -15,6 +15,7 @@ import {
   disciplineCategoriesApi,
   type DisciplineCategoryResource,
 } from '../api/disciplineCategories'
+import { articlesApi } from '../api/articles'
 
 interface Journal {
   id?: number
@@ -286,43 +287,6 @@ const JOURNALS: Journal[] = [
   },
 ]
 
-const MOST_VIEWED = [
-  {
-    type: 'Case Report',
-    title:
-      'Transient multidomain functional improvement in advanced Alzheimer’s disease following high-dose psilocybin-containing mushroom administration: a case report',
-    authors: 'Marcos Lago, Mariana Cerveira, Joe Xavier Simonet',
-    journal: 'Frontiers in Neuroscience',
-    views: '189,889',
-    citations: '1',
-  },
-  {
-    type: 'Perspective',
-    title:
-      'Beyond the bare minimum: the case for revised physical activity guidelines and protein intake recommendations that maximise healthspan',
-    authors: 'Chris Macdonald',
-    journal: 'Frontiers in Nutrition',
-    views: '140,900',
-    citations: '1',
-  },
-  {
-    type: 'Brief Research Report',
-    title:
-      'Fragmentation of sharp-tail sunfish (Masturus lanceolatus) caused by high-impact ramming behavior in orcas (Orcinus orca)',
-    authors: 'Kathryn A. Ayres, Austin J. Gallagher, Christine V. Avena, Carlos M. Duarte, Jesús Erick Higuera Rivas',
-    journal: 'Frontiers in Ethology',
-    views: '115,992',
-  },
-  {
-    type: 'Lead Article',
-    title: 'Regulatory T cells: master orchestrators of immune tolerance and tissue homeostasis',
-    authors: 'Jeffrey A. Bluestone, Megan K. Levings, Frederick J. Ramsdell, Alexander Y. Rudensky, Qizhi Tang, Piotr Trzonkowski',
-    journal: 'Frontiers in Science',
-    views: '85,349',
-    citations: '3',
-  },
-]
-
 const TRENDING_TOPICS = [
   'CRISPR Gene Editing',
   'Perovskite Photovoltaics',
@@ -442,6 +406,27 @@ const serverParams = useMemo<JournalIndexParams & { categoryId?: number | null }
 
 const { data: journals, isPending } = useJournals(serverParams)
 const { data: categories } = useDisciplineCategories()
+
+const { data: mostViewed, isPending: mostViewedPending } = useQuery({
+  queryKey: ['most-viewed-articles'],
+  queryFn: async () => {
+    const res = await articlesApi.index({ sort: 'view_count', per_page: 5 })
+    return res.data
+  },
+  staleTime: 5 * 60 * 1000,
+})
+const mostViewedItems = useMemo(
+  () =>
+    (mostViewed?.data ?? []).map((a) => ({
+      slug: a.slug,
+      type: a.article_type?.name ?? 'Article',
+      title: a.title,
+      authors: (a.authors ?? []).map((x) => x.name).join(', '),
+      journal: a.journal?.title ?? '',
+      views: a.view_count.toLocaleString(),
+    })),
+  [mostViewed],
+)
 
 const categoryOptions = useMemo(() => {
   const apiCats = (categories ?? []).map((c) => ({ id: c.id, name: c.name }))
@@ -800,8 +785,17 @@ const categoryOptions = useMemo(() => {
                 </div>
 
                 <div className="divide-y divide-border/60">
-                  {MOST_VIEWED.map((article, idx) => (
-                    <article key={article.title} className="py-3 first:pt-0 last:pb-0">
+                  {mostViewedPending &&
+                    [0, 1, 2, 3].map((i) => (
+                      <div key={i} className="space-y-2 py-3 first:pt-0 last:pb-0">
+                        <Skeleton className="h-2.5 w-16" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-2/3" />
+                      </div>
+                    ))}
+
+                  {mostViewedItems.map((article, idx) => (
+                    <article key={article.slug} className="py-3 first:pt-0 last:pb-0">
                       <a href="#" className="group block space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-sky">
@@ -816,9 +810,11 @@ const categoryOptions = useMemo(() => {
                           {article.title}
                         </h4>
 
-                        <p className="line-clamp-1 text-[11px] text-ink-muted">
-                          {article.authors}
-                        </p>
+                        {article.authors && (
+                          <p className="line-clamp-1 text-[11px] text-ink-muted">
+                            {article.authors}
+                          </p>
+                        )}
 
                         <div className="pt-0.5 flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-primary truncate max-w-[130px]">
@@ -835,7 +831,7 @@ const categoryOptions = useMemo(() => {
 
                 <div className="border-t border-border pt-3">
                   <a
-                    href="#"
+                    href={appRoutes.articles}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary-hover transition-colors"
                   >
                     <span>See all trending research</span>
