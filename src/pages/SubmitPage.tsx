@@ -132,6 +132,7 @@ function toFileRequirements(fr?: ArticleTypeResource['file_requirements']): File
     manuscript: toFileReq(fr.manuscript),
     figures: toFileReq(fr.figures),
     supplementary: toFileReq(fr.supplementary),
+    reviewerMaterials: toFileReq(fr.reviewer_materials),
   }
 }
 

@@ -77,6 +77,11 @@ export function StepSubmissionDetails({
   const manuscriptZone: FileRequirementConfig = fr?.manuscript ?? { enabled: true, maxSizeMb: null, extensions: [] }
   const figuresZone: FileRequirementConfig = fr?.figures ?? { enabled: true, maxSizeMb: null, extensions: [] }
   const supplementaryZone: FileRequirementConfig = fr?.supplementary ?? { enabled: true, maxSizeMb: null, extensions: [] }
+  const reviewerMaterialsZone: FileRequirementConfig = fr?.reviewerMaterials ?? {
+    enabled: true,
+    maxSizeMb: null,
+    extensions: [],
+  }
 
   const manuscriptExtensions =
     manuscriptZone.extensions.length > 0 ? manuscriptZone.extensions : ['.doc', '.docx', '.tex', '.pdf', '.zip']
@@ -86,6 +91,8 @@ export function StepSubmissionDetails({
     supplementaryZone.extensions.length > 0
       ? supplementaryZone.extensions
       : ['.pdf', '.xlsx', '.csv', '.docx', '.pptx', '.zip', '.mp4']
+  const reviewerMaterialsExtensions =
+    reviewerMaterialsZone.extensions.length > 0 ? reviewerMaterialsZone.extensions : ['.pdf', '.doc', '.docx']
 
   const manuscriptValid = !manuscriptZone.enabled || (hasEditable && hasPdf)
 
@@ -408,8 +415,11 @@ export function StepSubmissionDetails({
           {/* Review-only Materials */}
           <UploadDropzone
             title="Confidential Reviewer Materials"
-            hint="Non-public reviewer response letters or prior peer evaluations"
+            hint={`Non-public reviewer response letters or prior peer evaluations${sizeHint(reviewerMaterialsZone.maxSizeMb)}`}
             badgeText="Optional"
+            acceptTypes={reviewerMaterialsExtensions.join(',')}
+            maxSizeMb={reviewerMaterialsZone.maxSizeMb}
+            disabled={!reviewerMaterialsZone.enabled}
             files={draft.uploads.reviewOnly}
             onAdd={(names) =>
               update('uploads', {

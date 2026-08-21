@@ -67,6 +67,7 @@ export interface FileTypeRequirements {
   manuscript?: FileRequirementConfig
   figures?: FileRequirementConfig
   supplementary?: FileRequirementConfig
+  reviewerMaterials?: FileRequirementConfig
 }
 
 export interface ArticleTypeDetail {

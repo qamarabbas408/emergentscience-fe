@@ -11,6 +11,7 @@ export interface FileTypeRequirements {
   manuscript?: FileRequirement
   figures?: FileRequirement
   supplementary?: FileRequirement
+  reviewer_materials?: FileRequirement
 }
 
 export interface ArticleTypeResource {
