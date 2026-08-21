@@ -11,6 +11,7 @@ import {
 import {
   SCOPE_WORD_LIMIT,
   type ArticleTypeDetail,
+  type FileRequirementConfig,
   type JournalOption,
   type SubmissionDraft,
 } from './types'
@@ -71,7 +72,24 @@ export function StepSubmissionDetails({
 
   const hasEditable = draft.uploads.manuscript.some((f) => /\.(docx?|tex)$/i.test(f))
   const hasPdf = draft.uploads.manuscript.some((f) => /\.pdf$/i.test(f))
-  const manuscriptValid = hasEditable && hasPdf
+
+  const fr = selectedArticleType?.fileRequirements
+  const manuscriptZone: FileRequirementConfig = fr?.manuscript ?? { enabled: true, maxSizeMb: null, extensions: [] }
+  const figuresZone: FileRequirementConfig = fr?.figures ?? { enabled: true, maxSizeMb: null, extensions: [] }
+  const supplementaryZone: FileRequirementConfig = fr?.supplementary ?? { enabled: true, maxSizeMb: null, extensions: [] }
+
+  const manuscriptExtensions =
+    manuscriptZone.extensions.length > 0 ? manuscriptZone.extensions : ['.doc', '.docx', '.tex', '.pdf', '.zip']
+  const figuresExtensions =
+    figuresZone.extensions.length > 0 ? figuresZone.extensions : ['.tif', '.tiff', '.jpg', '.jpeg', '.png', '.eps', '.pdf']
+  const supplementaryExtensions =
+    supplementaryZone.extensions.length > 0
+      ? supplementaryZone.extensions
+      : ['.pdf', '.xlsx', '.csv', '.docx', '.pptx', '.zip', '.mp4']
+
+  const manuscriptValid = !manuscriptZone.enabled || (hasEditable && hasPdf)
+
+  const sizeHint = (maxSizeMb: number | null) => (maxSizeMb ? ` · Max ${maxSizeMb}MB` : '')
 
   const handleJournalSelect = (journal: PickerJournalOption, specialty: string) => {
     update('journal', `${journal.name} - ${specialty}`)
@@ -318,10 +336,12 @@ export function StepSubmissionDetails({
           {/* Main Manuscript (Word / LaTeX + PDF) */}
           <UploadDropzone
             title="Manuscript Source & PDF"
-            hint="Upload both editable (DOC, DOCX, TeX) AND PDF versions"
+            hint={`Upload both editable (DOC, DOCX, TeX) AND PDF versions${sizeHint(manuscriptZone.maxSizeMb)}`}
             badgeText="Required"
             required
-            acceptTypes=".doc,.docx,.tex,.pdf,.zip"
+            acceptTypes={manuscriptExtensions.join(',')}
+            maxSizeMb={manuscriptZone.maxSizeMb}
+            disabled={!manuscriptZone.enabled}
             files={draft.uploads.manuscript}
             onAdd={(names) =>
               update('uploads', { ...draft.uploads, manuscript: [...draft.uploads.manuscript, ...names] })
@@ -343,9 +363,11 @@ export function StepSubmissionDetails({
           {/* Figures */}
           <UploadDropzone
             title="High-Resolution Figures"
-            hint="TIFF, PNG, JPEG or vector EPS; 300+ DPI recommended"
+            hint={`TIFF, PNG, JPEG or vector EPS; 300+ DPI recommended${sizeHint(figuresZone.maxSizeMb)}`}
             badgeText="Optional"
-            acceptTypes=".tif,.tiff,.jpg,.jpeg,.png,.eps,.pdf"
+            acceptTypes={figuresExtensions.join(',')}
+            maxSizeMb={figuresZone.maxSizeMb}
+            disabled={!figuresZone.enabled}
             files={draft.uploads.figures}
             onAdd={(names) =>
               update('uploads', { ...draft.uploads, figures: [...draft.uploads.figures, ...names] })
@@ -362,8 +384,11 @@ export function StepSubmissionDetails({
           {/* Supplementary Materials */}
           <UploadDropzone
             title="Supplementary Files"
-            hint="Data sheets, code repositories, supplementary tables or audio/video"
+            hint={`Data sheets, code repositories, supplementary tables or audio/video${sizeHint(supplementaryZone.maxSizeMb)}`}
             badgeText="Optional"
+            acceptTypes={supplementaryExtensions.join(',')}
+            maxSizeMb={supplementaryZone.maxSizeMb}
+            disabled={!supplementaryZone.enabled}
             files={draft.uploads.supplementary}
             onAdd={(names) =>
               update('uploads', {

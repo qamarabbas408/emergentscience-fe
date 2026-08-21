@@ -57,6 +57,18 @@ export interface ArticleTypeOption {
   peerReviewType?: string
 }
 
+export interface FileRequirementConfig {
+  enabled: boolean
+  maxSizeMb: number | null
+  extensions: string[]
+}
+
+export interface FileTypeRequirements {
+  manuscript?: FileRequirementConfig
+  figures?: FileRequirementConfig
+  supplementary?: FileRequirementConfig
+}
+
 export interface ArticleTypeDetail {
   name: string
   description: string
@@ -64,6 +76,7 @@ export interface ArticleTypeDetail {
   summaryWords: number | null | undefined
   figuresLimit: number | null | undefined
   peerReviewType?: string
+  fileRequirements?: FileTypeRequirements
 }
 
 export interface MissingItem {

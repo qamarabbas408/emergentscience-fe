@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { toast } from '../components/toast'
-import { articleTypesApi, type ArticleTypeResource } from '../api/articleTypes'
+import { articleTypesApi, type ArticleTypeResource, type FileRequirement } from '../api/articleTypes'
+import type { FileRequirementConfig, FileTypeRequirements } from './submit/types'
 import {
   STEP_ORDER,
   STEP_TITLES,
@@ -121,6 +122,19 @@ function hasPdfVersion(files: string[]): boolean {
   return files.some((file) => /\.pdf$/i.test(file))
 }
 
+function toFileReq(r?: FileRequirement): FileRequirementConfig | undefined {
+  return r ? { enabled: r.enabled, maxSizeMb: r.max_size_mb, extensions: r.extensions } : undefined
+}
+
+function toFileRequirements(fr?: ArticleTypeResource['file_requirements']): FileTypeRequirements | undefined {
+  if (!fr) return undefined
+  return {
+    manuscript: toFileReq(fr.manuscript),
+    figures: toFileReq(fr.figures),
+    supplementary: toFileReq(fr.supplementary),
+  }
+}
+
 export function SubmitPage() {
   const [draft, setDraft] = useState<SubmissionDraft>(loadSavedDraft)
   const [openSteps, setOpenSteps] = useState<Record<StepKey, boolean>>({
@@ -190,10 +204,14 @@ export function SubmitPage() {
         summaryWords: api.max_summary_words,
         figuresLimit: api.max_figures_tables,
         peerReviewType: ARTICLE_TYPE_DETAILS[api.name]?.peerReviewType,
+        fileRequirements: toFileRequirements(api.file_requirements),
       }
     }
     return ARTICLE_TYPE_DETAILS[draft.articleType]
   }, [draft.articleType, apiArticleTypes])
+
+  const manuscriptUploadEnabled =
+    selectedArticleType?.fileRequirements?.manuscript?.enabled ?? true
 
   const summaryWordLimit = selectedArticleType?.summaryWords ?? 2000
 
@@ -204,8 +222,9 @@ export function SubmitPage() {
         draft.articleType !== '' &&
         draft.scopeStatement.trim() !== '' &&
         wordCount(draft.scopeStatement) <= 250 &&
-        hasEditableVersion(draft.uploads.manuscript) &&
-        hasPdfVersion(draft.uploads.manuscript),
+        (!manuscriptUploadEnabled ||
+          (hasEditableVersion(draft.uploads.manuscript) &&
+            hasPdfVersion(draft.uploads.manuscript))),
       summary:
         draft.title.trim() !== '' &&
         draft.title.trim().length <= 500 &&
@@ -218,11 +237,11 @@ export function SubmitPage() {
         draft.statements.consents &&
         draft.statements.acceptsTerms,
     }),
-    [draft, summaryWordLimit],
+    [draft, summaryWordLimit, manuscriptUploadEnabled],
   )
 
   const checklistItems = useMemo<MissingItem[]>(() => {
-    return [
+    const items: MissingItem[] = [
       { id: 'journal', stepKey: 'details', label: 'Select Target Journal & Section', isComplete: Boolean(draft.journal) },
       { id: 'articleType', stepKey: 'details', label: 'Select Article Type', isComplete: Boolean(draft.articleType) },
       {
@@ -231,18 +250,24 @@ export function SubmitPage() {
         label: 'Provide Scope Justification Statement',
         isComplete: draft.scopeStatement.trim() !== '' && wordCount(draft.scopeStatement) <= 250,
       },
-      {
-        id: 'manuscriptEditable',
-        stepKey: 'details',
-        label: 'Upload Editable Source Manuscript (DOC/DOCX/TeX)',
-        isComplete: hasEditableVersion(draft.uploads.manuscript),
-      },
-      {
-        id: 'manuscriptPdf',
-        stepKey: 'details',
-        label: 'Upload Manuscript PDF Version',
-        isComplete: hasPdfVersion(draft.uploads.manuscript),
-      },
+    ]
+    if (manuscriptUploadEnabled) {
+      items.push(
+        {
+          id: 'manuscriptEditable',
+          stepKey: 'details',
+          label: 'Upload Editable Source Manuscript (DOC/DOCX/TeX)',
+          isComplete: hasEditableVersion(draft.uploads.manuscript),
+        },
+        {
+          id: 'manuscriptPdf',
+          stepKey: 'details',
+          label: 'Upload Manuscript PDF Version',
+          isComplete: hasPdfVersion(draft.uploads.manuscript),
+        },
+      )
+    }
+    items.push(
       {
         id: 'title',
         stepKey: 'summary',
@@ -260,8 +285,9 @@ export function SubmitPage() {
       { id: 'adheresPolicies', stepKey: 'statements', label: 'Accept Data Sharing & Ethics Policy', isComplete: draft.statements.adheresPolicies },
       { id: 'consents', stepKey: 'statements', label: 'Confirm Author & Participant Consents', isComplete: draft.statements.consents },
       { id: 'acceptsTerms', stepKey: 'statements', label: 'Accept Open Access Terms & Conditions', isComplete: draft.statements.acceptsTerms },
-    ]
-  }, [draft, summaryWordLimit])
+    )
+    return items
+  }, [draft, summaryWordLimit, manuscriptUploadEnabled])
 
   const qualityPercent = useMemo(() => {
     const total = checklistItems.length
