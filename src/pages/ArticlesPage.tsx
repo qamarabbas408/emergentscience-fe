@@ -18,6 +18,7 @@ import { ArticleDetailModal } from '../components/ArticleDetailModal'
 import { QuickCiteModal } from '../components/QuickCiteModal'
 import type { Article } from '../data/articlesData'
 import { articlesApi, type ArticleResource, type ArticlesIndexParams } from '../api/articles'
+import { articleTypesApi } from '../api/articleTypes'
 
 const MONTH_INDEX: Record<string, number> = {
   Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
@@ -166,6 +167,29 @@ export function ArticlesPage() {
   const typeNameBySlug = useMemo(
     () => new Map(TYPE_OPTIONS.map((t) => [t.slug, t.name])),
     [TYPE_OPTIONS],
+  )
+
+  // Full type catalogue so zero-count types stay visible (disabled) after filtering
+  const { data: allTypesData } = useQuery({
+    queryKey: ['article-types'],
+    queryFn: async () => {
+      const res = await articleTypesApi.index()
+      return res.data
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+  const facetCountBySlug = useMemo(
+    () => new Map(TYPE_OPTIONS.map((t) => [t.slug, t.count])),
+    [TYPE_OPTIONS],
+  )
+  const ALL_TYPE_OPTIONS = useMemo(
+    () =>
+      (allTypesData?.data ?? []).map((t) => ({
+        slug: t.slug,
+        name: t.name,
+        count: facetCountBySlug.get(t.slug) ?? 0,
+      })),
+    [allTypesData, facetCountBySlug],
   )
 
   const articles = useMemo(() => (data?.data ?? []).map(toUiArticle), [data])
@@ -679,11 +703,12 @@ export function ArticlesPage() {
               {/* Article Types */}
               <FilterSection title="Article Type">
                 <div className="space-y-1.5">
-                  {TYPE_OPTIONS.map(({ slug, name, count }) => (
+                  {ALL_TYPE_OPTIONS.map(({ slug, name, count }) => (
                     <CheckOption
                       key={slug}
                       label={`${name} (${count})`}
                       checked={selectedTypes.includes(slug)}
+                      disabled={count === 0 && !selectedTypes.includes(slug)}
                       onChange={() => toggleInList(selectedTypes, slug, setSelectedTypes)}
                     />
                   ))}
@@ -795,17 +820,26 @@ function CheckOption({
   label,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string
   checked: boolean
   onChange: () => void
+  disabled?: boolean
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2 text-xs text-ink-secondary hover:text-ink transition-colors">
+    <label
+      className={`flex items-start gap-2 text-xs transition-colors ${
+        disabled
+          ? 'cursor-not-allowed text-ink-muted/60 opacity-60'
+          : 'cursor-pointer text-ink-secondary hover:text-ink'
+      }`}
+    >
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
+        disabled={disabled}
         className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 accent-primary"
       />
       <span className="leading-tight">{label}</span>
