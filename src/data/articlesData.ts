@@ -1,0 +1,233 @@
+export interface Article {
+  id: number
+  type: string
+  title: string
+  authors: string[]
+  affiliations?: string[]
+  journal: string
+  section?: string
+  doi: string
+  published: string
+  citations: number
+  views: number
+  downloads?: number
+  topic?: string
+  abstract: string
+  keywords?: string[]
+  figuresCount?: number
+  readingTimeMinutes?: number
+  isEditorPick?: boolean
+  isOpenData?: boolean
+  openAccessType?: 'CC-BY 4.0' | 'CC-BY-NC 4.0'
+}
+
+export const ARTICLES_DATA: Article[] = [
+  {
+    id: 1,
+    type: 'Original Research',
+    title: 'High-Efficiency Perovskite Solar Cells with Low-Cost Hole-Transporting Carbon Interlayers',
+    authors: ['Dr. Elena Rostova', 'Prof. Kenji Takahashi', 'Dr. Mateo Silva'],
+    affiliations: ['Department of Materials Science, ETH Zurich', 'Center for Solar Energy, Tokyo Tech'],
+    journal: 'Frontiers in Photovoltaics',
+    section: 'Advanced Photovoltaic Devices & Materials',
+    doi: '10.3389/fpv.2026.000124',
+    published: '14 Aug 2026',
+    citations: 4,
+    views: 1892,
+    downloads: 412,
+    readingTimeMinutes: 14,
+    isEditorPick: true,
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Perovskites', 'Photovoltaics', 'Carbon Electrodes', 'Energy Harvesting', 'Stability'],
+    abstract:
+      'We demonstrate carbon-based hole-transporting interlayers that boost inverted p-i-n perovskite cell power conversion efficiency to 27.1% while eliminating expensive spiro-OMeTAD materials. Device degradation is suppressed under continuous 1-sun illumination with unencapsulated 1000-hour T90 retention, offering a viable route for grid-scale commercialization.',
+  },
+  {
+    id: 2,
+    type: 'Review',
+    title: 'Clinical Validation of Foundation Vision-Language Models in Multi-Center Radiomic Diagnostics',
+    authors: ['Sarah Jenkins', 'David Liu', 'Clara Monnier', 'Prof. Marcus Vance'],
+    affiliations: ['Johns Hopkins University School of Medicine', 'Charité Universitätsmedizin Berlin'],
+    journal: 'Frontiers in Artificial Intelligence',
+    section: 'AI in Medicine and Healthcare',
+    doi: '10.3389/frai.2026.001355',
+    published: '12 Aug 2026',
+    citations: 18,
+    views: 6410,
+    downloads: 1240,
+    readingTimeMinutes: 22,
+    topic: 'AI in Diagnostics',
+    isEditorPick: true,
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Medical Foundation Models', 'Radiology', 'Vision-Language AI', 'Clinical Validation', 'Diagnostic Accuracy'],
+    abstract:
+      'This review consolidates prospective and retrospective clinical validation studies of multimodal vision-language foundation models across 23 global radiology centers. We analyze diagnostic calibration across chest CT, musculoskeletal MRI, and emergency ultrasound, providing standardized benchmarks for bias detection and regulatory compliance.',
+  },
+  {
+    id: 3,
+    type: 'Case Report',
+    title: 'Transient Multidomain Cognitive Improvement Following High-Dose Psilocybin Administration: A Case Report',
+    authors: ['Marcos Lago', 'Mariana Cerveira', 'Joe Xavier Simonet'],
+    affiliations: ['Imperial College London Centre for Psychedelic Research', 'University of São Paulo'],
+    journal: 'Frontiers in Neuroscience',
+    section: 'Neural Technology and Brain-Computer Interfaces',
+    doi: '10.3389/fnins.2026.1813281',
+    published: '11 May 2026',
+    citations: 7,
+    views: 189889,
+    downloads: 9812,
+    readingTimeMinutes: 9,
+    isOpenData: false,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Psilocybin', 'Cognitive Neurobiology', 'Alzheimers Disease', 'fMRI Functional Connectivity'],
+    abstract:
+      'We report transient multidomain functional improvement in an early-onset Alzheimer’s disease patient following a closely monitored high-dose psilocybin protocol. Serial resting-state fMRI and neurocognitive batteries at 48 hours and 14 days revealed measurable restoration in Default Mode Network synchrony and episodic retrieval markers.',
+  },
+  {
+    id: 4,
+    type: 'Original Research',
+    title: 'CRISPR-Cas9 Screens Identify Synthetic Lethal Targets in BRCA1-Deficient Triple-Negative Breast Cancer',
+    authors: ['Dr. Anika Sharma', 'Dr. Wei Zhao', 'Prof. Jean-Paul Durand'],
+    affiliations: ['Dana-Farber Cancer Institute, Harvard Medical School', 'Institut Curie'],
+    journal: 'Frontiers in Genome Editing',
+    section: 'Genome Screening & Therapeutics',
+    doi: '10.3389/fge.2026.000312',
+    published: '08 Aug 2026',
+    citations: 21,
+    views: 5810,
+    downloads: 870,
+    readingTimeMinutes: 16,
+    isEditorPick: true,
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['CRISPR-Cas9', 'BRCA1', 'Triple-Negative Breast Cancer', 'Synthetic Lethality', 'Targeted Therapeutics'],
+    abstract:
+      'Genome-wide pooled CRISPR-Cas9 knockout screens across 14 BRCA1-deficient patient cell lines identified seven high-confidence synthetic lethal dependencies. Functional validation in patient-derived 3D organoid models demonstrates that dual inhibition of POLQ and RAD51 paralogs causes selective apoptotic collapse without hematopoietic toxicity.',
+  },
+  {
+    id: 5,
+    type: 'Systematic Review',
+    title: 'Gut-Microbiome Interventions for Metabolic Health: A Systematic Review of 92 Randomized Controlled Trials',
+    authors: ['Rob Knight', 'Lena Fischer', 'Dr. Carlos Mendoza'],
+    affiliations: ['Center for Microbiome Innovation, UC San Diego', 'Karolinska Institutet'],
+    journal: 'Frontiers in Microbiome Research',
+    section: 'Microbiome & Metabolic Health',
+    doi: '10.3389/fmbr.2026.000089',
+    published: '02 Aug 2026',
+    citations: 34,
+    views: 12450,
+    downloads: 3100,
+    readingTimeMinutes: 28,
+    topic: 'Microbiome & Metabolism',
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Microbiome', 'FMT', 'Type 2 Diabetes', 'Metabolic Syndrome', 'Short-Chain Fatty Acids'],
+    abstract:
+      'Pooled meta-analysis of 92 randomized controlled trials encompassing 6,480 participants shows targeted prebiotic formulations and standardized FMT protocols deliver statistically significant reductions in HbA1c (-0.62%) and visceral adiposity index over 16-week cohorts.',
+  },
+  {
+    id: 6,
+    type: 'Perspective',
+    title: 'Toward Interpretable Quantum Large Language Models: Benchmarks, Pitfalls, and Open Problems',
+    authors: ['Peter Knight', 'Dr. Sofia Almeida', 'Aron K. Szekely'],
+    affiliations: ['Department of Physics, Oxford University', 'Max Planck Institute for Quantum Optics'],
+    journal: 'Frontiers in Quantum Computing',
+    section: 'Quantum Algorithms & Machine Intelligence',
+    doi: '10.3389/fqco.2026.000071',
+    published: '28 Jul 2026',
+    citations: 5,
+    views: 2205,
+    downloads: 512,
+    readingTimeMinutes: 11,
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Quantum NLP', 'Parameterized Quantum Circuits', 'Interpretability', 'Quantum Advantage'],
+    abstract:
+      'We argue that current quantum language model evaluations conflate Hilbert space encoding dimensionality with semantic reasoning capability. We introduce the Q-REASON framework—a benchmark suite designed specifically to evaluate genuine entanglement-derived speedups.',
+  },
+  {
+    id: 7,
+    type: 'Original Research',
+    title: 'Solid-State Electrolyte Interfaces for Fast-Charging Lithium Batteries at Scale',
+    authors: ['Y. Shirley Meng', 'Tomás Navarro', 'Hao-Ming Chen'],
+    affiliations: ['Pritzker School of Molecular Engineering, University of Chicago', 'National University of Singapore'],
+    journal: 'Frontiers in Battery Technology',
+    section: 'Next-Gen Solid State Batteries',
+    doi: '10.3389/fbat.2026.000203',
+    published: '20 Jul 2026',
+    citations: 12,
+    views: 7840,
+    downloads: 1420,
+    readingTimeMinutes: 15,
+    topic: 'Solid-State Batteries',
+    isEditorPick: true,
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Solid-State Electrolytes', 'Lithium Metal Anode', 'Fast Charging', 'Interfacial Kinetics'],
+    abstract:
+      'Atomic layer modification of halide and sulfide solid electrolyte interphases prevents lithium dendrite propagation at critical current densities exceeding 10 mA/cm². Pouch cells demonstrated 15-minute 80% charge cycles maintaining >94.8% capacity after 1,000 continuous cycles.',
+  },
+  {
+    id: 8,
+    type: 'Brief Research Report',
+    title: 'Perovskite Stability Under Dual Stress: Humidity and Ultraviolet Cycling in Outdoor Conditions',
+    authors: ['Henry Snaith', 'Grace Okafor'],
+    affiliations: ['Clarendon Laboratory, University of Oxford', 'University of Lagos'],
+    journal: 'Frontiers in Photovoltaics',
+    section: 'Advanced Photovoltaic Devices & Materials',
+    doi: '10.3389/fpv.2026.000148',
+    published: '15 Jul 2026',
+    citations: 3,
+    views: 1540,
+    downloads: 290,
+    readingTimeMinutes: 7,
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Photovoltaics', 'Environmental Stress Testing', 'UV Degradation', 'Encapsulation'],
+    abstract:
+      'Outdoor tracking across 14 months in subtropical ambient conditions indicates coupled diurnal UV and humidity cycling accelerates halide segregation 3.4× faster than single-parameter laboratory stress tests, underscoring critical barrier encapsulation criteria.',
+  },
+  {
+    id: 9,
+    type: 'Editorial',
+    title: 'Research Integrity in an Age of Automated Manuscript Generation',
+    authors: ['The Editorial Board of Emergent Science', 'Prof. Vivienne St. Claire'],
+    affiliations: ['Emergent Science Publishing Ethics Council', 'Cambridge Institute of Technology'],
+    journal: 'Frontiers in Artificial Intelligence',
+    section: 'AI Ethics, Trust and Policy',
+    doi: '10.3389/frai.2026.001420',
+    published: '10 Jul 2026',
+    citations: 8,
+    views: 6210,
+    downloads: 980,
+    readingTimeMinutes: 6,
+    isOpenData: false,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Research Ethics', 'GenAI Policies', 'Peer Review Integrity', 'Provenance Standards'],
+    abstract:
+      'Editors outline updated guidelines regarding generative artificial intelligence tools in scientific drafting, establishing obligatory watermarking standards, transparency attestations, and AI reviewer screening protocols across all journal tracks.',
+  },
+  {
+    id: 10,
+    type: 'Original Research',
+    title: 'Microbiome-Associated Metabolites Predict Anti-Tumor Response in Checkpoint Inhibitor Therapy',
+    authors: ['Dr. Kenji Takahashi', 'Amelie Rousseau', 'Dr. Sarah Al-Mansoor'],
+    affiliations: ['Institut Gustave Roussy', 'Kyoto University Center for Cancer Immunotherapy'],
+    journal: 'Frontiers in Microbiome Research',
+    section: 'Immuno-Oncology & Microbiome',
+    doi: '10.3389/fmbr.2026.000104',
+    published: '05 Jul 2026',
+    citations: 17,
+    views: 9250,
+    downloads: 2150,
+    readingTimeMinutes: 18,
+    isEditorPick: true,
+    isOpenData: true,
+    openAccessType: 'CC-BY 4.0',
+    keywords: ['Cancer Immunotherapy', 'Checkpoint Inhibitors', 'Metabolomics', 'Predictive Biomarkers'],
+    abstract:
+      'High-throughput serum metabolomics from 210 metastatic melanoma and non-small cell lung cancer cohorts identified secondary bile acid derivatives that modulate CD8+ T-cell infiltration, predicting durable progression-free survival with 0.84 receiver operating characteristic AUC.',
+  },
+]
