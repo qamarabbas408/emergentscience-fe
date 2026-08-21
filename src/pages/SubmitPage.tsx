@@ -555,7 +555,7 @@ function createDefaultDraft(): SubmissionDraft {
   lead.lastName = 'Abbas'
   lead.affiliations = ['University of Karachi, Karachi, Pakistan']
   return {
-    journal: `${JOURNAL_OPTIONS[0].name} - ${JOURNAL_OPTIONS[0].specialties[0]}`,
+    journal: '',
     articleType: '',
     scopeStatement: '',
     title: '',
