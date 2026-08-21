@@ -11,6 +11,9 @@ export const apiEndpoints = {
   journals: {
     index: `${API_PREFIX}/journals`,
   },
+  articles: {
+    index: `${API_PREFIX}/articles`,
+  },
   articleTypes: {
     index: `${API_PREFIX}/article-types`,
   },

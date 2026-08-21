@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useEffect } from 'react'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import {
   Search,
   Grid,
@@ -16,7 +16,8 @@ import { ArticleCardSkeleton } from '../components/skeletons'
 import { ArticleCard } from '../components/ArticleCard'
 import { ArticleDetailModal } from '../components/ArticleDetailModal'
 import { QuickCiteModal } from '../components/QuickCiteModal'
-import { ARTICLES_DATA, type Article } from '../data/articlesData'
+import type { Article } from '../data/articlesData'
+import { articlesApi, type ArticleResource, type ArticlesIndexParams } from '../api/articles'
 
 const MONTH_INDEX: Record<string, number> = {
   Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
@@ -54,24 +55,57 @@ type SortBy = 'recent' | 'citations' | 'views' | 'downloads'
 type ViewMode = 'list' | 'grid'
 type DateFilter = 'all' | '7d' | '30d' | '90d' | 'custom'
 
-const JOURNAL_OPTIONS = [...new Set(ARTICLES_DATA.map((article) => article.journal))]
-const TYPE_OPTIONS = [...new Set(ARTICLES_DATA.map((article) => article.type))]
-
 const PAGE_SIZE = 5
 
-function useArticles() {
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function toUiArticle(resource: ArticleResource): Article {
+  const date = new Date(resource.publication_date)
+  const published =
+    Number.isNaN(date.getTime())
+      ? resource.publication_date
+      : `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`
+
+  return {
+    id: resource.id,
+    type: resource.article_type?.name ?? 'Article',
+    title: resource.title,
+    authors: (resource.authors ?? []).map((a) => a.name),
+    affiliations: [
+      ...new Set((resource.authors ?? []).map((a) => a.affiliation).filter(Boolean) as string[]),
+    ],
+    journal: resource.journal?.title ?? '',
+    section: resource.topics?.[0]?.title,
+    topic: resource.topics?.[0]?.title,
+    doi: resource.doi,
+    published,
+    citations: resource.citation_count,
+    views: resource.view_count,
+    downloads: resource.download_count,
+    abstract: resource.abstract ?? '',
+    keywords: resource.keywords ?? [],
+    isEditorPick: false,
+    isOpenData: false,
+    openAccessType: 'CC-BY 4.0',
+  }
+}
+
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+}
+
+function useArticles(params: ArticlesIndexParams) {
   return useQuery({
-    queryKey: ['articles-revamped'],
-    queryFn: () =>
-      new Promise<Article[]>((resolve) => {
-        setTimeout(() => resolve(ARTICLES_DATA), 400)
-      }),
+    queryKey: ['articles', params],
+    queryFn: async () => {
+      const res = await articlesApi.index(params)
+      return res.data
+    },
+    placeholderData: keepPreviousData,
   })
 }
 
 export function ArticlesPage() {
-  const { data: articles, isPending } = useArticles()
-
   // Filter and view states
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('recent')
@@ -89,6 +123,52 @@ export function ArticlesPage() {
   const [journalSearch, setJournalSearch] = useState('')
   const [showAllJournals, setShowAllJournals] = useState(false)
   const [page, setPage] = useState(1)
+
+  // Server query: debounce search, map filters to API params
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(query.trim()), 300)
+    return () => window.clearTimeout(t)
+  }, [query])
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, selectedJournals, selectedTypes, dateFilter, customFrom, customTo])
+
+  const queryParams = useMemo<ArticlesIndexParams>(() => {
+    const p: ArticlesIndexParams = { page, per_page: PAGE_SIZE }
+    if (debouncedSearch) p.search = debouncedSearch
+    if (selectedJournals.length > 0) p.journal = selectedJournals.join(',')
+    if (selectedTypes.length > 0) p.type = selectedTypes.join(',')
+    if (sortBy === 'citations') p.sort = 'citation_count'
+    else if (sortBy === 'views') p.sort = 'view_count'
+    if (dateFilter === '7d') p.published_from = isoDaysAgo(7)
+    if (dateFilter === '30d') p.published_from = isoDaysAgo(30)
+    if (dateFilter === '90d') p.published_from = isoDaysAgo(90)
+    if (dateFilter === 'custom') {
+      if (customFrom) p.published_from = customFrom
+      if (customTo) p.published_to = customTo
+    }
+    return p
+  }, [page, debouncedSearch, selectedJournals, selectedTypes, sortBy, dateFilter, customFrom, customTo])
+
+  const { data, isPending } = useArticles(queryParams)
+
+  // Sidebar options + counts come straight from the response facets
+  // (server already excludes the active group filter from its own count)
+  const facets = data?.facets
+  const JOURNAL_OPTIONS = useMemo(() => facets?.journals ?? [], [facets])
+  const journalTitleBySlug = useMemo(
+    () => new Map(JOURNAL_OPTIONS.map((j) => [j.slug, j.title])),
+    [JOURNAL_OPTIONS],
+  )
+  const TYPE_OPTIONS = useMemo(() => facets?.article_types ?? [], [facets])
+  const typeNameBySlug = useMemo(
+    () => new Map(TYPE_OPTIONS.map((t) => [t.slug, t.name])),
+    [TYPE_OPTIONS],
+  )
+
+  const articles = useMemo(() => (data?.data ?? []).map(toUiArticle), [data])
 
   // Bookmarks persistence (localStorage)
   const [bookmarkedIds, setBookmarkedIds] = useState<number[]>(() => {
@@ -132,8 +212,11 @@ export function ArticlesPage() {
         (article.keywords && article.keywords.some((kw) => kw.toLowerCase().includes(q)))
 
       const matchesJournal =
-        selectedJournals.length === 0 || selectedJournals.includes(article.journal)
-      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(article.type)
+        selectedJournals.length === 0 ||
+        selectedJournals.some((slug) => journalTitleBySlug.get(slug) === article.journal)
+      const matchesType =
+        selectedTypes.length === 0 ||
+        selectedTypes.some((slug) => typeNameBySlug.get(slug) === article.type)
       const matchesTopic = !researchTopicOnly || Boolean(article.topic)
       const matchesEditorPick = !editorPickOnly || Boolean(article.isEditorPick)
       const matchesOpenData = !openDataOnly || Boolean(article.isOpenData)
@@ -178,6 +261,8 @@ export function ArticlesPage() {
     sortBy,
     selectedJournals,
     selectedTypes,
+    journalTitleBySlug,
+    typeNameBySlug,
     selectedKeywords,
     researchTopicOnly,
     editorPickOnly,
@@ -201,9 +286,11 @@ export function ArticlesPage() {
     dateFilter !== 'all' ||
     !openAccessOnly
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const totalResults = data?.meta.total ?? 0
+
+  const totalPages = Math.max(1, data?.meta.last_page ?? 1)
   const safePage = Math.min(page, totalPages)
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const pageItems = filtered
 
   const clearAllFilters = () => {
     setQuery('')
@@ -228,11 +315,8 @@ export function ArticlesPage() {
   }
 
   const visibleJournals = JOURNAL_OPTIONS.filter((j) =>
-    j.toLowerCase().includes(journalSearch.toLowerCase()),
+    j.title.toLowerCase().includes(journalSearch.toLowerCase()),
   ).slice(0, showAllJournals ? JOURNAL_OPTIONS.length : 5)
-
-  const journalCount = (name: string) => (articles ?? []).filter((a) => a.journal === name).length
-  const typeCount = (name: string) => (articles ?? []).filter((a) => a.type === name).length
 
   // Quick stats summary
   const totalCitations = useMemo(
@@ -308,9 +392,9 @@ export function ArticlesPage() {
                       aria-label="Filter by journal"
                     >
                       <option value="">All Publications</option>
-                      {JOURNAL_OPTIONS.map((journal) => (
-                        <option key={journal} value={journal}>
-                          {journal}
+                      {JOURNAL_OPTIONS.map(({ slug, title }) => (
+                        <option key={slug} value={slug}>
+                          {title}
                         </option>
                       ))}
                     </select>
@@ -378,8 +462,8 @@ export function ArticlesPage() {
                 Showing{' '}
                 {isPending
                   ? '…'
-                  : `${filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1} – ${Math.min(safePage * PAGE_SIZE, filtered.length)}`}{' '}
-                of <span className="text-primary font-black">{isPending ? '…' : filtered.length}</span> Publications
+                  : `${totalResults === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1} – ${Math.min(safePage * PAGE_SIZE, totalResults)}`}{' '}
+                of <span className="text-primary font-black">{isPending ? '…' : totalResults}</span> Publications
               </span>
 
               <span className="mx-1 h-4 w-px bg-border" />
@@ -412,7 +496,7 @@ export function ArticlesPage() {
               {selectedJournals.map((j) => (
                 <FilterChip
                   key={j}
-                  label={`Journal: ${j}`}
+                  label={`Journal: ${journalTitleBySlug.get(j) ?? j}`}
                   onRemove={() => toggleInList(selectedJournals, j, setSelectedJournals)}
                 />
               ))}
@@ -426,7 +510,7 @@ export function ArticlesPage() {
               {selectedTypes.map((t) => (
                 <FilterChip
                   key={t}
-                  label={`Type: ${t}`}
+                  label={`Type: ${typeNameBySlug.get(t) ?? t}`}
                   onRemove={() => toggleInList(selectedTypes, t, setSelectedTypes)}
                 />
               ))}
@@ -571,12 +655,12 @@ export function ArticlesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  {visibleJournals.map((journal) => (
+                  {visibleJournals.map(({ slug, title, count }) => (
                     <CheckOption
-                      key={journal}
-                      label={`${journal} (${journalCount(journal)})`}
-                      checked={selectedJournals.includes(journal)}
-                      onChange={() => toggleInList(selectedJournals, journal, setSelectedJournals)}
+                      key={slug}
+                      label={`${title} (${count})`}
+                      checked={selectedJournals.includes(slug)}
+                      onChange={() => toggleInList(selectedJournals, slug, setSelectedJournals)}
                     />
                   ))}
                 </div>
@@ -595,12 +679,12 @@ export function ArticlesPage() {
               {/* Article Types */}
               <FilterSection title="Article Type">
                 <div className="space-y-1.5">
-                  {TYPE_OPTIONS.map((type) => (
+                  {TYPE_OPTIONS.map(({ slug, name, count }) => (
                     <CheckOption
-                      key={type}
-                      label={`${type} (${typeCount(type)})`}
-                      checked={selectedTypes.includes(type)}
-                      onChange={() => toggleInList(selectedTypes, type, setSelectedTypes)}
+                      key={slug}
+                      label={`${name} (${count})`}
+                      checked={selectedTypes.includes(slug)}
+                      onChange={() => toggleInList(selectedTypes, slug, setSelectedTypes)}
                     />
                   ))}
                 </div>
