@@ -1,102 +1,50 @@
-# SKILLS.md — Project Workflow & Conventions
+# Skills
 
-## Tech Stack
-- **React 19 + TypeScript** (Vite 8, rolldown bundler)
-- **Tailwind CSS v4** via `@tailwindcss/vite` plugin (CSS-first config, no `tailwind.config.js`)
-- **TanStack Query** for server state; **Axios** for HTTP; **react-i18next** for i18n; **react-router-dom** for routing
-- Node 24, npm 11
+## PORT-UIUX: copy UI/UX from other codebase → this project
+Assume NOTHING carries over. Max context, min tokens.
 
-## Commands
-```bash
-npm install          # install dependencies
-npm run dev          # start dev server (default port 5173)
-npm run build        # typecheck (tsc -b) + production build
-npm run lint         # oxlint (React + TS rules)
-```
+### 0. cp > Read→Write
+- NEVER read-to-rewrite. `cp src/a/X.tsx src/b/X.tsx` = zero content tokens. Batch copies 1 cmd.
+- READ only what must CHANGE. Untouched file → cp only.
+- Contract-only peek: `grep -n "interface\|type \|export function\|const .* = (" X.tsx`
+- Read once → note inventory → never re-read unchanged files.
 
-## Project Structure
-```
-src/
-  api/          # API modules (endpoints, auth, query hooks)
-  components/   # shared UI (Header, Footer, AuthModal, LanguageSwitcher)
-  i18n/         # i18next setup + locale resources
-  lib/          # utilities (apiClient, uploader)
-  pages/        # route-level pages (Landing, ...)
-  appConstants.ts  # shared UI data (nav, stats, features, ...)
-  appImages.ts     # shared image URLs
-  appRoutes.ts     # route path constants
-  App.tsx       # root component + router
-  main.tsx      # entry point (providers)
-  index.css     # Tailwind import + @theme design tokens
-```
+### 1. Inventory (1 pass)
+exports (components/props/types/helpers/constants/hooks); imports (icon lib? utils? theme tokens? react-query/zustand/form libs); child component prop signatures exact (`onSelect(j,s)` vs `onSelect(j)`); state shape (draft defaults, localStorage keys, validators, word/char limits).
 
-## Design System (Frontiers-inspired)
-Design tokens live in `src/index.css` under `@theme`:
+### 2. Dependency map (before code)
+icons: source→target (`<SearchIcon/>`→lucide `Search`); tokens: raw class→project token (`bg-blue-50`→`bg-primary-tint`, text→`text-ink`); types: field diffs (`section` vs `specialties[]`, `category` vs `domain`); API: fetch→client/endpoints/hooks + response shapes. Missing dep → install/substitute/stub BEFORE porting.
 
-| Token | Value |
-|---|---|
-| `--color-primary` | `#003bde` |
-| `--color-primary-hover` / `-deep` | `#0024b0` / `#001959` |
-| `--color-primary-tint` | `#eef5ff` |
-| `--color-sky` | `#00a0dc` |
-| `--color-ink` / `-secondary` / `-muted` | `#282828` / `#545454` / `#6b6b6b` |
-| `--color-body` / `-surface` | `#f7f7f7` / `#ffffff` |
-| `--color-border` | `#e6e6e6` |
-| `--color-success` / `-warning` / `-danger` | `#459d3a` / `#e56000` / `#d51a2c` |
-| `--radius-card` | `8px` |
-| `--shadow-card` | subtle multi-layer 40/40/8 shadows |
-| `--shadow-hero` | `0 4px 33px rgba(0,0,0,.25)` |
+### 3. Adapt at boundary only
+- NO internal edits to copied components. Thin adapter/mapper at call site (`{section,category}`→`{specialties[],domain}`).
+- 1 type source-of-truth; extend/re-export; alias clashes: `import type { JournalOption as PickerJournalOption }`.
+- Replacing inline impl w/ shared component → GREP shared component CURRENT props first (call sites often stale vs component API).
 
-- **Font:** Inter (300/400/500/600/700), loaded via Google Fonts in `index.html`; stand-in for Frontiers' proprietary MuseoSans
-- Brand accent for the navbar is crimson `#dc2626` (per header spec), independent of the blue primary tokens
-- Use tokens (`bg-primary`, `text-ink-secondary`, `rounded-card`, `shadow-card`) instead of raw hex
+### 4. Behavior > markup
+carry validators/computed (word counters, limits, `hasEditableVersion`); persistence keys + default factories + resume logic; keyframes/animate-in classes from index.css.
 
-## React Best Practices
-Reference: https://react.dev/reference/react
-- **Components:** function components, PascalCase file names, named exports
-- **Hooks:** call only at the top level of components/custom hooks; never conditionally or in loops. Custom hooks prefixed `use` (e.g. `useMe`, `useLogin`)
-- **Server state → TanStack Query:** use `useQuery` for reads, `useMutation` for writes; manage loading/error states from the hook, not local state. Never `useEffect` + fetch
-- **Derived state:** compute during render (plain variables/memo), don't mirror it in state
-- **Props:** type everything with TS; use discriminated unions for component variants; destructure props
-- **Lists:** give stable keys from data (id/slug), never array index
-- **Events:** use semantic HTML (`<button>`, `<form>`, `<label>`) with proper `aria-*` and `onSubmit` for forms instead of divs with onClick
-- **Accessibility:** visible focus styles (`focus-visible:`), `aria-live`/`role="status"` for dynamic content (toasts, inline messages)
-- **i18n:** all user-facing strings go through `t()` from react-i18next; never hardcode copy in JSX
-- **Composition:** extract small presentational components over big config props; avoid over-spreading props
-- **Reuse, don't duplicate:** never copy UI that looks the same and serves the same role (icons, empty states, pills, search bars, cards, modals). Extract shared presentational components into `src/components/` and reuse them across pages instead of re-implementing them per page
-- **Performance:** reach for `useMemo`/`useCallback` when a child re-renders on a fresh object/function; avoid premature optimization
-- **Error boundaries** for sections that can throw (upload, render of external data)
+### 5. Verify (once, batched)
+grep stale refs (old props, removed setters, dead constants, unused imports) → lint+tsc+build one pass → smoke route curl 200 → commit only after pass.
 
-## Tailwind CSS v4 Best Practices
-Reference: https://tailwindcss.com/docs/installation/using-vite
-- **CSS-first config:** all design tokens live in `@theme` in `index.css` — that file is the single source of truth
-- **Use tokens, not raw values:** prefer `bg-primary`, `text-ink-secondary`, `rounded-card`, `shadow-card` over `bg-[#003bde]`, `rounded-[8px]`, `p-[13px]`
-- **Naming:** `@theme` namespaces `--color-*`, `--radius-*`, `--shadow-*` generate `bg-*`, `rounded-*`, `shadow-*` utilities
-- **Utility-first in JSX:** compose classes inline; prefer extracting repeated class groups into small components over `@apply`. If `@apply` is used inside a CSS file, prefix the file with `@reference "../index.css"` in v4
-- **Avoid arbitrary values** (`h-[37px]`, `w-[400px]`) when a spacing-scale utility exists (`h-9`, `max-w-*`); the 4px spacing scale is preferred
-- **Responsive:** mobile-first — base styles un-prefixed, then `sm:`/`md:`/`lg:`/`xl:`/`2xl:` upgrades
-- **Interactions:** prefer `hover:`/`focus-visible:`/`active:`/`disabled:` variants; use `focus-visible:` for keyboard-visible focus, not `focus:`
-- **Layering:** manage z-index deliberately; document it (navbar `z-50`, modals `z-50`, toasts `z-60`). Reserve custom media queries for rare cases
-- **No global element styling** beyond reset; style through utilities on elements
+### 6. Context trail
+summary: files ported, mappings applied, intentional drops, fallbacks (mock-on-API-fail).
 
-## Conventions
-- **TypeScript strict**; no `any` unless unavoidable
-- **No comments in code** unless explicitly requested
-- Components: function components with named exports, PascalCase files
-- Data arrays (nav links, cards) defined as module-level constants, mapped in JSX
-- Centralize shared UI data in `appConstants.ts`, paths in `appRoutes.ts`, image URLs in `appImages.ts`
-- Mobile-first responsive: base styles for mobile, `sm:`/`md:`/`lg:`/`xl:`/`2xl:` breakpoints for larger screens
-- Verify responsiveness (no horizontal overflow) with headless Chrome at 320–1280px before finishing a layout change
-- Use real Unsplash images (auto=format&fit=crop&w=2400&q=80) for hero/featured backgrounds with a dark overlay for text legibility
+## BEST-PRACTICES (current docs)
 
-## Workflow
-- New feature → verify `npm run build` passes → manually verify in `npm run dev`
-- Commit convention: conventional prefixes (`feat:`, `fix:`, `refactor:`)
-- Always run `npm run build` after changes before committing
+### React 19+ (react.dev)
+fn components+hooks; named exports. NO useEffect fetching → TanStack Query. Derive state in render, no effect-sync. Stable keys (IDs not index). State colocated low. useRef = DOM/imperative only.
 
-## Agent Practices
-- Follow the React best practices above before developing a feature: https://react.dev/reference/react
-- Follow the Tailwind v4 best practices above when designing UI: https://tailwindcss.com/docs/installation/using-vite
-- Check that UI additions reuse existing design tokens and shared constants before adding new ones
-- Keep `npm run build` and `npm run lint` green before finishing any task
-- **Minimize token usage to preserve context:** keep responses terse and direct; read files in parallel batches rather than one at a time; read only the specific files/lines needed instead of whole files; prefer targeted `grep`/`rg` for spot-checks over full reads; avoid re-reading files already seen this session; when output is long, use offsets to read only the changed regions
+### TS strict (typescriptlang.org/docs)
+no `any` → `unknown`+narrow at boundaries. `import type`. Props derived from API resource types. `satisfies` for configs. Discriminated unions > bool flags. No enums → literal unions / `as const`. tsc catches drift pre-runtime.
+
+### TanStack Query v5 (tanstack.com/query/latest)
+object syntax only `{queryKey,queryFn}`. ALL vars in queryKey. `enabled` conditional. `placeholderData: keepPreviousData` (imported fn). `select` transform = fewer re-renders. UI handles isPending/isError/error, no try/catch around hooks. Mutations → invalidateQueries. v4→v5 migration guide if behavior differs.
+
+### Tailwind (tailwindcss.com/docs)
+project tokens ONLY (`bg-primary-tint`,`text-ink`,`border-border`) not raw palette/arbitrary values; check index.css/@theme first. Conditional classes via cn()/clsx. Mobile-first prefixes. Extract patterns → components not @apply.
+
+## DEBUG ESCALATION
+Bug survives 2–3 fix attempts → STOP guessing → official docs: react.dev · typescriptlang.org/docs · tanstack.com/query/latest · tailwindcss.com/docs. Search exact error + pkg version; check migration guide for installed major BEFORE more fixes.
+
+## TOKEN EFFICIENCY
+grep/glob before read; offset/limit windows; parallel tool calls (1 msg many calls); write final code ONCE (no patch churn); targeted edits > rewrites; no re-reads; terse replies (no code restating/preamble); port N files → verify once at end.
