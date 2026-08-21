@@ -1,50 +1,55 @@
 # Skills
 
-## PORT-UIUX: copy UI/UX from other codebase → this project
-Assume NOTHING carries over. Max context, min tokens.
+## REVAMP-UI source
+- repo: `/Users/qabbas715/Projects/emerginscience/emergentsci-google-ai-ui` (clone of this app, same stack)
+- port = cp page + unique components/data; keep OUR Header/Footer/skeletons/toast/api; no cross-repo imports
+- ported: /articles (ArticlesPage, ArticleCard, ArticleDetailModal, QuickCiteModal, data/articlesData.ts)
+- mock data → swap queryFn when real API shared
+
+## PORT-UIUX (other codebase → here)
+Assume nothing carries over. Max context, min tokens.
 
 ### 0. cp > Read→Write
-- NEVER read-to-rewrite. `cp src/a/X.tsx src/b/X.tsx` = zero content tokens. Batch copies 1 cmd.
-- READ only what must CHANGE. Untouched file → cp only.
-- Contract-only peek: `grep -n "interface\|type \|export function\|const .* = (" X.tsx`
-- Read once → note inventory → never re-read unchanged files.
+- never read-to-rewrite: `cp a/X.tsx b/X.tsx`; batch 1 cmd
+- read only what must change; contract peek: `grep -n "interface\|type \|export function" X.tsx`
+- read once → note → no re-reads
 
 ### 1. Inventory (1 pass)
-exports (components/props/types/helpers/constants/hooks); imports (icon lib? utils? theme tokens? react-query/zustand/form libs); child component prop signatures exact (`onSelect(j,s)` vs `onSelect(j)`); state shape (draft defaults, localStorage keys, validators, word/char limits).
+exports; imports (icons/utils/tokens/state libs); child prop signatures exact; state shape (defaults, localStorage keys, validators, limits)
 
-### 2. Dependency map (before code)
-icons: source→target (`<SearchIcon/>`→lucide `Search`); tokens: raw class→project token (`bg-blue-50`→`bg-primary-tint`, text→`text-ink`); types: field diffs (`section` vs `specialties[]`, `category` vs `domain`); API: fetch→client/endpoints/hooks + response shapes. Missing dep → install/substitute/stub BEFORE porting.
+### 2. Dependency map (pre-code)
+icons→lucide equiv; raw class→token (`bg-blue-50`→`bg-primary-tint`, text→`text-ink`); type field diffs (`section` vs `specialties[]`); fetch→our api layer. Missing dep → install/substitute/stub first.
 
-### 3. Adapt at boundary only
-- NO internal edits to copied components. Thin adapter/mapper at call site (`{section,category}`→`{specialties[],domain}`).
-- 1 type source-of-truth; extend/re-export; alias clashes: `import type { JournalOption as PickerJournalOption }`.
-- Replacing inline impl w/ shared component → GREP shared component CURRENT props first (call sites often stale vs component API).
+### 3. Adapt boundary only
+- no internal edits to copied components; thin mapper at call site
+- 1 type source-of-truth; alias clashes: `import type { X as Y }`
+- replacing inline impl w/ shared comp → grep shared comp CURRENT props first
 
 ### 4. Behavior > markup
-carry validators/computed (word counters, limits, `hasEditableVersion`); persistence keys + default factories + resume logic; keyframes/animate-in classes from index.css.
+carry validators/computed/limits; persistence keys + default factories; keyframes from index.css
 
-### 5. Verify (once, batched)
-grep stale refs (old props, removed setters, dead constants, unused imports) → lint+tsc+build one pass → smoke route curl 200 → commit only after pass.
+### 5. Verify (once)
+grep stale refs → lint+tsc+build one pass → curl route 200 → commit after pass
 
 ### 6. Context trail
-summary: files ported, mappings applied, intentional drops, fallbacks (mock-on-API-fail).
+summary: files ported, mappings, intentional drops, fallbacks
 
-## BEST-PRACTICES (current docs)
+## BEST-PRACTICES
 
 ### React 19+ (react.dev)
-fn components+hooks; named exports. NO useEffect fetching → TanStack Query. Derive state in render, no effect-sync. Stable keys (IDs not index). State colocated low. useRef = DOM/imperative only.
+fn components+hooks; named exports; NO useEffect fetching → TanStack Query; derive state in render; stable keys (IDs); state colocated low; useRef = DOM only
 
 ### TS strict (typescriptlang.org/docs)
-no `any` → `unknown`+narrow at boundaries. `import type`. Props derived from API resource types. `satisfies` for configs. Discriminated unions > bool flags. No enums → literal unions / `as const`. tsc catches drift pre-runtime.
+no `any` → `unknown`+narrow; `import type`; props from API types; `satisfies`; discriminated unions > bool flags; no enums → unions/`as const`
 
 ### TanStack Query v5 (tanstack.com/query/latest)
-object syntax only `{queryKey,queryFn}`. ALL vars in queryKey. `enabled` conditional. `placeholderData: keepPreviousData` (imported fn). `select` transform = fewer re-renders. UI handles isPending/isError/error, no try/catch around hooks. Mutations → invalidateQueries. v4→v5 migration guide if behavior differs.
+object syntax `{queryKey,queryFn}`; all vars in queryKey; `enabled` conditional; `placeholderData: keepPreviousData`; `select` transform; UI handles isPending/isError; mutations → invalidateQueries
 
 ### Tailwind (tailwindcss.com/docs)
-project tokens ONLY (`bg-primary-tint`,`text-ink`,`border-border`) not raw palette/arbitrary values; check index.css/@theme first. Conditional classes via cn()/clsx. Mobile-first prefixes. Extract patterns → components not @apply.
+project tokens only (`bg-primary-tint`,`text-ink`,`border-border`); cn()/clsx for conditionals; mobile-first; components > @apply
 
 ## DEBUG ESCALATION
-Bug survives 2–3 fix attempts → STOP guessing → official docs: react.dev · typescriptlang.org/docs · tanstack.com/query/latest · tailwindcss.com/docs. Search exact error + pkg version; check migration guide for installed major BEFORE more fixes.
+bug survives 2–3 fixes → docs: react.dev · typescriptlang.org/docs · tanstack.com/query/latest · tailwindcss.com/docs; search exact error + version; check migration guide first
 
 ## TOKEN EFFICIENCY
-grep/glob before read; offset/limit windows; parallel tool calls (1 msg many calls); write final code ONCE (no patch churn); targeted edits > rewrites; no re-reads; terse replies (no code restating/preamble); port N files → verify once at end.
+grep/glob before read; offset/limit windows; parallel calls; write once (no patch churn); targeted edits; no re-reads; terse replies; port N files → verify once at end
