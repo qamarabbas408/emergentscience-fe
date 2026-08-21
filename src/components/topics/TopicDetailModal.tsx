@@ -71,22 +71,30 @@ export function TopicDetailModal({
             </h1>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-white/90 pt-1">
-              <div className="flex items-center gap-1.5 font-medium">
-                <CalendarIcon />
-                <span>Deadline: {topic.submissionDeadline}</span>
-              </div>
-              <div className="flex items-center gap-1.5 font-medium">
-                <DocumentIcon />
-                <span>{topic.articlesCount} Articles Published</span>
-              </div>
-              <div className="flex items-center gap-1.5 font-medium">
-                <EyeIcon />
-                <span>{topic.viewsCount.toLocaleString()} Views</span>
-              </div>
-              <div className="flex items-center gap-1.5 font-medium">
-                <QuoteIcon />
-                <span>{topic.citationsCount.toLocaleString()} Citations</span>
-              </div>
+              {topic.submissionDeadline && (
+                <div className="flex items-center gap-1.5 font-medium">
+                  <CalendarIcon />
+                  <span>Deadline: {topic.submissionDeadline}</span>
+                </div>
+              )}
+              {topic.articlesCount > 0 && (
+                <div className="flex items-center gap-1.5 font-medium">
+                  <DocumentIcon />
+                  <span>{topic.articlesCount} Articles Published</span>
+                </div>
+              )}
+              {topic.viewsCount > 0 && (
+                <div className="flex items-center gap-1.5 font-medium">
+                  <EyeIcon />
+                  <span>{topic.viewsCount.toLocaleString()} Views</span>
+                </div>
+              )}
+              {topic.citationsCount > 0 && (
+                <div className="flex items-center gap-1.5 font-medium">
+                  <QuoteIcon />
+                  <span>{topic.citationsCount.toLocaleString()} Citations</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -154,42 +162,46 @@ export function TopicDetailModal({
               </div>
 
               {/* Keywords */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                  Focus Areas &amp; Keywords
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {topic.keywords.map((kw) => (
-                    <span
-                      key={kw}
-                      className="rounded-lg border border-border bg-body px-2.5 py-1 text-xs font-semibold text-ink-secondary"
-                    >
-                      {kw}
-                    </span>
-                  ))}
+              {topic.keywords.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                    Focus Areas &amp; Keywords
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {topic.keywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className="rounded-lg border border-border bg-body px-2.5 py-1 text-xs font-semibold text-ink-secondary"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Milestone Schedule */}
-              <div className="rounded-xl border border-border bg-slate-50 p-4 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-ink">
-                  Important Dates &amp; Milestone Schedule
-                </h4>
-                <div className="grid gap-3 sm:grid-cols-3 text-xs">
-                  <div className="bg-white p-3 rounded-lg border border-border">
-                    <span className="block text-ink-muted text-[11px] font-medium">Abstract Submission</span>
-                    <span className="font-bold text-ink">Rolling Review</span>
-                  </div>
-                  <div className="bg-white p-3 rounded-lg border border-red-200">
-                    <span className="block text-red-600 text-[11px] font-bold">Manuscript Deadline</span>
-                    <span className="font-bold text-red-700">{topic.submissionDeadline}</span>
-                  </div>
-                  <div className="bg-white p-3 rounded-lg border border-border">
-                    <span className="block text-ink-muted text-[11px] font-medium">Final Volume Reprint</span>
-                    <span className="font-bold text-ink">December 2026</span>
+              {topic.submissionDeadline && (
+                <div className="rounded-xl border border-border bg-slate-50 p-4 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink">
+                    Important Dates &amp; Milestone Schedule
+                  </h4>
+                  <div className="grid gap-3 sm:grid-cols-3 text-xs">
+                    <div className="bg-white p-3 rounded-lg border border-border">
+                      <span className="block text-ink-muted text-[11px] font-medium">Abstract Submission</span>
+                      <span className="font-bold text-ink">Rolling Review</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-red-200">
+                      <span className="block text-red-600 text-[11px] font-bold">Manuscript Deadline</span>
+                      <span className="font-bold text-red-700">{topic.submissionDeadline}</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-border">
+                      <span className="block text-ink-muted text-[11px] font-medium">Final Volume Reprint</span>
+                      <span className="font-bold text-ink">December 2026</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -314,7 +326,13 @@ export function TopicDetailModal({
         {/* Modal Footer CTA */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border bg-slate-50 px-6 py-4">
           <div className="text-xs text-ink-muted">
-            <span className="font-bold text-ink">Manuscript Deadline:</span> {topic.submissionDeadline}
+            {topic.submissionDeadline ? (
+              <>
+                <span className="font-bold text-ink">Manuscript Deadline:</span> {topic.submissionDeadline}
+              </>
+            ) : (
+              <span className="font-bold text-ink">{topic.discipline}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">

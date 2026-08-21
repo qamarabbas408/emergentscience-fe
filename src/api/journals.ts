@@ -20,6 +20,7 @@ export interface JournalResource {
   field_chief_editor: string | null
   sections_count: number
   articles_count: number
+  topics_count?: number
   views: number
   citations: number
   impact_factor: number | null

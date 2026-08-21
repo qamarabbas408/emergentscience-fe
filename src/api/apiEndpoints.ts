@@ -14,6 +14,9 @@ export const apiEndpoints = {
   articles: {
     index: `${API_PREFIX}/articles`,
   },
+  topics: {
+    index: `${API_PREFIX}/topics`,
+  },
   articleTypes: {
     index: `${API_PREFIX}/article-types`,
   },

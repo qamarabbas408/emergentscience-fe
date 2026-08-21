@@ -28,6 +28,7 @@ interface Journal {
   isNew?: boolean
   sections?: number
   articles?: number
+  topicsCount?: number
   views?: string
   citations?: string
   impactFactor?: string
@@ -334,6 +335,7 @@ function toJournal(resource: JournalResource): Journal {
     isNew: resource.is_new,
     sections: resource.sections_count,
     articles: resource.articles_count,
+    topicsCount: resource.topics_count,
     views: resource.views != null ? resource.views.toLocaleString('en-US') : undefined,
     citations: resource.citations ? resource.citations.toLocaleString('en-US') : undefined,
     impactFactor: resource.impact_factor != null ? String(resource.impact_factor) : undefined,
@@ -905,6 +907,11 @@ function JournalCard({ journal, isCompact }: { journal: Journal; isCompact?: boo
           <span className="text-ink-muted text-[11px] hidden sm:inline">
             {journal.articles?.toLocaleString()} arts.
           </span>
+          {journal.topicsCount != null && (
+            <span className="text-ink-muted text-[11px] hidden sm:inline">
+              {journal.topicsCount.toLocaleString()} topics
+            </span>
+          )}
         </div>
       </article>
     )
@@ -924,6 +931,11 @@ function JournalCard({ journal, isCompact }: { journal: Journal; isCompact?: boo
           {journal.isNew && (
             <span className="rounded-full bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
               New
+            </span>
+          )}
+          {journal.category && (
+            <span className="rounded bg-slate-100 text-ink-muted px-2 py-0.5 text-[10px] font-semibold truncate max-w-[160px]">
+              {journal.category}
             </span>
           )}
         </div>
@@ -957,6 +969,9 @@ function JournalCard({ journal, isCompact }: { journal: Journal; isCompact?: boo
           )}
           {journal.articles !== undefined && (
             <Metric label="Articles" value={journal.articles.toLocaleString('en-US')} />
+          )}
+          {journal.topicsCount !== undefined && (
+            <Metric label="Topics" value={journal.topicsCount.toLocaleString('en-US')} />
           )}
           {journal.views && <Metric label="Views" value={journal.views} />}
           {journal.citations && <Metric label="Citations" value={journal.citations} />}

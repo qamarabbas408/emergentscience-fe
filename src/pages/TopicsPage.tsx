@@ -1,30 +1,53 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Header } from '../components/Header'
 import { Footer } from '../components/Footer'
 import { EmptyState } from '../components/EmptyState'
+import { Skeleton } from '../components/skeletons'
 import { appRoutes } from '../appRoutes'
 import {
-  TOPIC_DISCIPLINES,
-  TOPICS_DATA,
   TOPIC_REPRINTS,
   type ResearchTopic,
   type TopicReprintBook,
 } from '../data/topicsData'
+import { topicsApi, type TopicResource } from '../api/topics'
 import { ProposeTopicModal } from '../components/topics/ProposeTopicModal'
 import { TopicDetailModal } from '../components/topics/TopicDetailModal'
 import { TopicAwardModal } from '../components/topics/TopicAwardModal'
 import { TopicReprintModal } from '../components/topics/TopicReprintModal'
 
-type SortOption = 'deadline' | 'views' | 'articles' | 'citations' | 'title'
+type SortOption = 'default' | 'title'
 type StatusFilter = 'all' | 'open' | 'closed'
+
+/** Map the thin /v1/topics payload onto the rich display model; missing facets degrade gracefully */
+function toDisplayTopic(t: TopicResource): ResearchTopic {
+  return {
+    id: String(t.id),
+    slug: t.slug,
+    title: t.title,
+    abstract: t.description ?? '',
+    discipline: t.journals[0]?.title ?? 'General',
+    isSubmissionOpen: t.is_active,
+    isAwardNominee: false,
+    submissionDeadline: '',
+    deadlineDate: '',
+    editors: [],
+    keywords: [],
+    participatingJournals: t.journals.map((j) => j.title),
+    articlesCount: 0,
+    viewsCount: 0,
+    citationsCount: 0,
+    bannerGradient: 'from-slate-900 via-primary-deep to-slate-950',
+  }
+}
 
 export function TopicsPage() {
   // State
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedDiscipline, setSelectedDiscipline] = useState<string>('All Disciplines')
-  const [selectedJournal, setSelectedJournal] = useState<string>('All Participating Journals')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [selectedDisciplineSlug, setSelectedDisciplineSlug] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [sortBy, setSortBy] = useState<SortOption>('deadline')
+  const [sortBy, setSortBy] = useState<SortOption>('default')
   const [viewMode, setViewMode] = useState<'cards' | 'compact'>('cards')
   const [itemsPerPage, setItemsPerPage] = useState<number>(10)
   const [currentPage, setCurrentPage] = useState<number>(1)
@@ -37,66 +60,68 @@ export function TopicsPage() {
   const [bookmarkedTopicIds, setBookmarkedTopicIds] = useState<Set<string>>(new Set())
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Unique journals list
-  const allJournalsList = useMemo(() => {
-    const set = new Set<string>()
-    TOPICS_DATA.forEach((topic) => {
-      topic.participatingJournals.forEach((j) => set.add(j))
-    })
-    return ['All Participating Journals', ...Array.from(set).sort()]
-  }, [])
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 300)
+    return () => clearTimeout(t)
+  }, [searchQuery])
+
+  // Live topics: server-side discipline + search; client-side status/sort/pagination
+  const { data: topicsRes, isPending: topicsPending } = useQuery({
+    queryKey: ['topics', selectedDisciplineSlug, debouncedQuery],
+    queryFn: async () => {
+      const res = await topicsApi.index({
+        discipline: selectedDisciplineSlug ?? undefined,
+        search: debouncedQuery.trim() || undefined,
+      })
+      return res.data
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const allTopics = useMemo(
+    () =>
+      (topicsRes?.data ?? []).map((t) => ({
+        ...toDisplayTopic(t),
+        discipline: t.journals[0]?.title ?? 'General',
+      })),
+    [topicsRes],
+  )
+
+  // Canonical discipline list + counts from response facets (server excludes own-group filter)
+  const facets = topicsRes?.facets
+  const DISCIPLINE_OPTIONS = useMemo(
+    () => [
+      { name: 'All Disciplines', slug: null as string | null, count: null as number | null },
+      ...(facets?.discipline_categories ?? []).map((d) => ({
+        name: d.name,
+        slug: d.slug as string | null,
+        count: d.count as number | null,
+      })),
+    ],
+    [facets],
+  )
 
   // Filter & sort logic
   const filteredTopics = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-
-    const list = TOPICS_DATA.filter((topic) => {
-      // Search
-      const matchesSearch =
-        !q ||
-        topic.title.toLowerCase().includes(q) ||
-        topic.discipline.toLowerCase().includes(q) ||
-        topic.keywords.some((k) => k.toLowerCase().includes(q)) ||
-        topic.editors.some(
-          (e) => e.name.toLowerCase().includes(q) || e.affiliation.toLowerCase().includes(q),
-        ) ||
-        topic.participatingJournals.some((j) => j.toLowerCase().includes(q))
-
-      // Discipline
-      const matchesDiscipline =
-        selectedDiscipline === 'All Disciplines' || topic.discipline === selectedDiscipline
-
-      // Journal
-      const matchesJournal =
-        selectedJournal === 'All Participating Journals' ||
-        topic.participatingJournals.includes(selectedJournal)
-
+    const list = allTopics.filter((topic) => {
       // Status
       const matchesStatus =
         statusFilter === 'all' ||
         (statusFilter === 'open' && topic.isSubmissionOpen) ||
         (statusFilter === 'closed' && !topic.isSubmissionOpen)
 
-      return matchesSearch && matchesDiscipline && matchesJournal && matchesStatus
+      return matchesStatus
     })
 
     // Sort
     return list.sort((a, b) => {
-      if (sortBy === 'deadline') {
-        return a.deadlineDate.localeCompare(b.deadlineDate)
+      if (sortBy === 'title') {
+        return a.title.localeCompare(b.title)
       }
-      if (sortBy === 'views') {
-        return b.viewsCount - a.viewsCount
-      }
-      if (sortBy === 'articles') {
-        return b.articlesCount - a.articlesCount
-      }
-      if (sortBy === 'citations') {
-        return b.citationsCount - a.citationsCount
-      }
-      return a.title.localeCompare(b.title)
+      return 0
     })
-  }, [searchQuery, selectedDiscipline, selectedJournal, statusFilter, sortBy])
+  }, [allTopics, statusFilter, sortBy])
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredTopics.length / itemsPerPage))
@@ -126,17 +151,15 @@ export function TopicsPage() {
 
   const resetAllFilters = () => {
     setSearchQuery('')
-    setSelectedDiscipline('All Disciplines')
-    setSelectedJournal('All Participating Journals')
+    setSelectedDisciplineSlug(null)
     setStatusFilter('all')
-    setSortBy('deadline')
+    setSortBy('default')
     setCurrentPage(1)
   }
 
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
-    selectedDiscipline !== 'All Disciplines' ||
-    selectedJournal !== 'All Participating Journals' ||
+    selectedDisciplineSlug !== null ||
     statusFilter !== 'all'
 
   return (
@@ -200,26 +223,28 @@ export function TopicsPage() {
                     <span className="text-amber-400 font-bold uppercase tracking-wider text-[10px]">
                       Featured Collection
                     </span>
-                    <span className="rounded bg-emerald-500/20 text-emerald-300 px-2 py-0.5 text-[10px] font-bold">
-                      Open for Submissions
-                    </span>
+                    {allTopics[0]?.isSubmissionOpen && (
+                      <span className="rounded bg-emerald-500/20 text-emerald-300 px-2 py-0.5 text-[10px] font-bold">
+                        Open for Submissions
+                      </span>
+                    )}
                   </div>
 
                   <h3
-                    onClick={() => setSelectedTopic(TOPICS_DATA[0])}
+                    onClick={() => allTopics[0] && setSelectedTopic(allTopics[0])}
                     className="text-sm font-bold text-white hover:text-primary-tint cursor-pointer transition-colors line-clamp-2"
                   >
-                    Applications of NLP, AI, and Machine Learning in Software Engineering
+                    {allTopics[0]?.title ?? '—'}
                   </h3>
 
                   <p className="text-xs text-slate-300 line-clamp-2">
-                    Lead Guest Editor: Dr. Affan Yasin (Hosei University, Tokyo) &amp; Prof. Javed Ali Khan
+                    {allTopics[0]?.abstract || 'Explore the full research topics directory.'}
                   </p>
 
                   <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-white/10 pt-2.5">
-                    <span>36 Articles Published</span>
+                    <span>{allTopics.length} Topics in Directory</span>
                     <button
-                      onClick={() => setSelectedTopic(TOPICS_DATA[0])}
+                      onClick={() => allTopics[0] && setSelectedTopic(allTopics[0])}
                       className="font-bold text-amber-300 hover:text-white"
                     >
                       View Topic →
@@ -237,8 +262,8 @@ export function TopicsPage() {
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl border border-border bg-white p-4 shadow-xs space-y-3">
             <div className="grid gap-3 lg:grid-cols-12 items-center">
-              {/* Search input (6 cols) */}
-              <div className="lg:col-span-5 relative">
+              {/* Search input (9 cols) */}
+              <div className="lg:col-span-9 relative">
                 <div className="flex items-center gap-2.5 rounded-xl border border-border bg-slate-50 px-3.5 py-2.5 focus-within:border-primary focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                   <SearchIcon />
                   <input
@@ -260,24 +285,6 @@ export function TopicsPage() {
                     </button>
                   )}
                 </div>
-              </div>
-
-              {/* Participating Journal Dropdown (3 cols) */}
-              <div className="lg:col-span-3">
-                <select
-                  value={selectedJournal}
-                  onChange={(e) => {
-                    setSelectedJournal(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  className="w-full rounded-xl border border-border bg-slate-50 px-3 py-2.5 text-xs font-semibold text-ink outline-none focus:border-primary focus:bg-white transition-colors cursor-pointer truncate"
-                >
-                  {allJournalsList.map((j) => (
-                    <option key={j} value={j}>
-                      {j}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               {/* Status Segmented Control (3 cols) */}
@@ -421,11 +428,14 @@ export function TopicsPage() {
               <div id="categories" className="rounded-2xl border border-border bg-white p-4 shadow-xs space-y-3">
                 <div className="flex items-center justify-between border-b border-border pb-2 px-1">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-ink">
-                    Disciplines ({TOPIC_DISCIPLINES.length - 1})
+                    Disciplines ({DISCIPLINE_OPTIONS.length - 1})
                   </h4>
-                  {selectedDiscipline !== 'All Disciplines' && (
+                  {selectedDisciplineSlug !== null && (
                     <button
-                      onClick={() => setSelectedDiscipline('All Disciplines')}
+                      onClick={() => {
+                        setSelectedDisciplineSlug(null)
+                        setCurrentPage(1)
+                      }}
                       className="text-[11px] font-bold text-red-600 hover:text-red-700"
                     >
                       Clear
@@ -434,36 +444,42 @@ export function TopicsPage() {
                 </div>
 
                 <div className="space-y-1">
-                  {TOPIC_DISCIPLINES.map((discipline) => {
-                    const isSelected = selectedDiscipline === discipline
-                    const count =
-                      discipline === 'All Disciplines'
-                        ? TOPICS_DATA.length
-                        : TOPICS_DATA.filter((t) => t.discipline === discipline).length
+                  {DISCIPLINE_OPTIONS.map(({ name, slug, count }) => {
+                    const isSelected = selectedDisciplineSlug === slug
+                    const isDisabled = count === 0 && !isSelected
 
                     return (
                       <button
-                        key={discipline}
+                        key={slug ?? 'all'}
+                        disabled={isDisabled}
                         onClick={() => {
-                          setSelectedDiscipline(discipline)
-                          setCurrentPage(1)
+                          if (!isDisabled) {
+                            setSelectedDisciplineSlug(slug)
+                            setCurrentPage(1)
+                          }
                         }}
                         className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-all ${
                           isSelected
                             ? 'bg-primary text-white font-bold shadow-xs'
-                            : 'text-ink-secondary hover:bg-slate-50 hover:text-primary font-medium'
+                            : isDisabled
+                              ? 'cursor-not-allowed opacity-50 text-ink-muted'
+                              : 'text-ink-secondary hover:bg-slate-50 hover:text-primary font-medium'
                         }`}
                       >
-                        <span className="truncate pr-2">{discipline}</span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            isSelected
-                              ? 'bg-white/20 text-white'
-                              : 'bg-slate-100 text-ink-muted'
+                        <span className="truncate pr-2">{name}</span>
+                        {count !== null && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              isSelected
+                                ? 'bg-white/20 text-white'
+                                : isDisabled
+                                  ? 'bg-slate-100 text-ink-muted'
+                                  : 'bg-slate-100 text-ink-muted'
                           }`}
-                        >
-                          {count}
-                        </span>
+                          >
+                            {count}
+                          </span>
+                        )}
                       </button>
                     )
                   })}
@@ -535,9 +551,12 @@ export function TopicsPage() {
                     <span className="rounded-full bg-primary-tint px-2.5 py-0.5 text-xs font-bold text-primary border border-primary/20">
                       {filteredTopics.length} {filteredTopics.length === 1 ? 'Topic' : 'Topics'}
                     </span>
-                    {selectedDiscipline !== 'All Disciplines' && (
+                    {selectedDisciplineSlug !== null && (
                       <span className="hidden sm:inline text-xs text-ink-muted">
-                        in <strong className="text-ink">{selectedDiscipline}</strong>
+                        in{' '}
+                        <strong className="text-ink">
+                          {DISCIPLINE_OPTIONS.find((d) => d.slug === selectedDisciplineSlug)?.name}
+                        </strong>
                       </span>
                     )}
                   </div>
@@ -552,10 +571,7 @@ export function TopicsPage() {
                         onChange={(e) => setSortBy(e.target.value as SortOption)}
                         className="bg-body border border-border rounded-lg px-2.5 py-1 text-xs font-semibold text-ink outline-none cursor-pointer"
                       >
-                        <option value="deadline">Submission Deadline</option>
-                        <option value="views">Most Viewed</option>
-                        <option value="articles">Most Articles</option>
-                        <option value="citations">Most Citations</option>
+                        <option value="default">Default Order</option>
                         <option value="title">Alphabetical (A–Z)</option>
                       </select>
                     </div>
@@ -609,7 +625,21 @@ export function TopicsPage() {
               </div>
 
               {/* LIST OF TOPIC CARDS */}
-              {paginatedTopics.length === 0 ? (
+              {topicsPending ? (
+                <div className="space-y-4">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="rounded-2xl border border-border bg-white p-6 shadow-xs space-y-3">
+                      <div className="flex gap-2">
+                        <Skeleton className="h-5 w-24 rounded-full" />
+                        <Skeleton className="h-5 w-28 rounded-full" />
+                      </div>
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  ))}
+                </div>
+              ) : paginatedTopics.length === 0 ? (
                 <EmptyState
                   icon={<SearchIcon />}
                   title="No research topics found"
@@ -754,9 +784,6 @@ function TopicCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-[10px]">
-              <span className="font-bold text-primary bg-primary-tint px-2 py-0.5 rounded">
-                {topic.discipline}
-              </span>
               {topic.isSubmissionOpen ? (
                 <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                   ● Open
@@ -766,7 +793,9 @@ function TopicCard({
                   Closed
                 </span>
               )}
-              <span className="text-ink-muted">Deadline: {topic.submissionDeadline}</span>
+              {topic.submissionDeadline && (
+                <span className="text-ink-muted">Deadline: {topic.submissionDeadline}</span>
+              )}
             </div>
 
             <h3
@@ -776,9 +805,11 @@ function TopicCard({
               {topic.title}
             </h3>
 
-            <p className="text-xs text-ink-muted truncate">
-              Lead: {topic.editors[0]?.name} ({topic.editors[0]?.affiliation})
-            </p>
+            {topic.editors[0] && (
+              <p className="text-xs text-ink-muted truncate">
+                Lead: {topic.editors[0]?.name} ({topic.editors[0]?.affiliation})
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -809,10 +840,6 @@ function TopicCard({
       {/* Top Meta Line: Discipline, Award badge, Status, Bookmark */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-primary-tint px-3 py-0.5 text-xs font-bold text-primary border border-primary/20">
-            {topic.discipline}
-          </span>
-
           {topic.isSubmissionOpen ? (
             <span className="rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-bold border border-emerald-200 flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
@@ -831,13 +858,15 @@ function TopicCard({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
-            <CalendarIcon />
-            <span>
-              Deadline: <strong className="text-ink">{topic.submissionDeadline}</strong>
-            </span>
-          </div>
+          <div className="flex items-center gap-3">
+            {topic.submissionDeadline && (
+              <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
+                <CalendarIcon />
+                <span>
+                  Deadline: <strong className="text-ink">{topic.submissionDeadline}</strong>
+                </span>
+              </div>
+            )}
 
           <button
             onClick={onBookmark}
@@ -868,39 +897,41 @@ function TopicCard({
       </div>
 
       {/* Guest Editors Section with clean avatar icons */}
-      <div className="rounded-xl border border-border bg-slate-50/70 p-3.5 space-y-2">
-        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-          <span>Topic Guest Editors</span>
-          <span>{topic.editors.length} Editors</span>
-        </div>
+      {topic.editors.length > 0 && (
+        <div className="rounded-xl border border-border bg-slate-50/70 p-3.5 space-y-2">
+          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+            <span>Topic Guest Editors</span>
+            <span>{topic.editors.length} Editors</span>
+          </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {topic.editors.map((editor) => (
-            <div key={editor.name} className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
-                  editor.avatarColor || 'bg-primary text-white'
-                }`}
-              >
-                {editor.name
-                  .split(' ')
-                  .filter((w) => !w.startsWith('Dr') && !w.startsWith('Prof'))
-                  .slice(0, 2)
-                  .map((w) => w[0])
-                  .join('')}
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {topic.editors.map((editor) => (
+              <div key={editor.name} className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                    editor.avatarColor || 'bg-primary text-white'
+                  }`}
+                >
+                  {editor.name
+                    .split(' ')
+                    .filter((w) => !w.startsWith('Dr') && !w.startsWith('Prof'))
+                    .slice(0, 2)
+                    .map((w) => w[0])
+                    .join('')}
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-ink truncate leading-tight">
+                    {editor.name}
+                  </span>
+                  <span className="block text-[10px] text-ink-muted truncate">
+                    {editor.affiliation}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <span className="block text-xs font-bold text-ink truncate leading-tight">
-                  {editor.name}
-                </span>
-                <span className="block text-[10px] text-ink-muted truncate">
-                  {editor.affiliation}
-                </span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Participating Journals Tags */}
       <div className="space-y-1.5">
@@ -922,22 +953,24 @@ function TopicCard({
       {/* Bottom Action Strip: Metrics & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3.5">
         {/* Metrics */}
-        <div className="flex items-center gap-4 text-xs text-ink-secondary">
-          <div className="flex items-center gap-1">
-            <span className="font-bold text-ink">{topic.articlesCount}</span>
-            <span className="text-ink-muted">Articles</span>
+        {(topic.articlesCount > 0 || topic.viewsCount > 0 || topic.citationsCount > 0) && (
+          <div className="flex items-center gap-4 text-xs text-ink-secondary">
+            <div className="flex items-center gap-1">
+              <span className="font-bold text-ink">{topic.articlesCount}</span>
+              <span className="text-ink-muted">Articles</span>
+            </div>
+            <span className="h-3 w-px bg-border" />
+            <div className="flex items-center gap-1">
+              <span className="font-bold text-ink">{topic.viewsCount.toLocaleString()}</span>
+              <span className="text-ink-muted">Views</span>
+            </div>
+            <span className="h-3 w-px bg-border" />
+            <div className="flex items-center gap-1">
+              <span className="font-bold text-ink">{topic.citationsCount.toLocaleString()}</span>
+              <span className="text-ink-muted">Citations</span>
+            </div>
           </div>
-          <span className="h-3 w-px bg-border" />
-          <div className="flex items-center gap-1">
-            <span className="font-bold text-ink">{topic.viewsCount.toLocaleString()}</span>
-            <span className="text-ink-muted">Views</span>
-          </div>
-          <span className="h-3 w-px bg-border" />
-          <div className="flex items-center gap-1">
-            <span className="font-bold text-ink">{topic.citationsCount.toLocaleString()}</span>
-            <span className="text-ink-muted">Citations</span>
-          </div>
-        </div>
+        )}
 
         {/* Buttons */}
         <div className="flex items-center gap-2">
