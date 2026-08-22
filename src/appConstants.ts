@@ -12,7 +12,7 @@ export const siteMeta = {
 export const navLinks = [
   { label: 'All Journals', href: appRoutes.journals },
   { label: 'Articles', href: appRoutes.articles },
-  { label: 'Research Topics', href: appRoutes.topics, tag: 'Explore' },
+  { label: 'Topics', href: appRoutes.topics, tag: 'Explore' },
   { label: 'Fees & Policies', href: appRoutes.fees },
   { label: 'About', href: appRoutes.about },
 ]
