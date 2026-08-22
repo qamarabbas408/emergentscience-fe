@@ -18,10 +18,18 @@ export interface TopicResource {
   journals: TopicJournal[]
 }
 
+export interface TopicIndexMeta {
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
 export interface TopicsIndexResponse {
   success: boolean
   message: string
   data: TopicResource[]
+  meta?: TopicIndexMeta
   facets?: {
     journals: { id: number; slug: string; title: string; count: number }[]
     discipline_categories: { id: number; slug: string; name: string; count: number }[]
@@ -31,6 +39,8 @@ export interface TopicsIndexResponse {
 export interface TopicsIndexParams {
   discipline?: string
   search?: string
+  page?: number
+  per_page?: number
 }
 
 export const topicsApi = {

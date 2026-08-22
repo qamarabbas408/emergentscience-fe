@@ -42,15 +42,17 @@ function createAuthor(): Author {
   }
 }
 
+const EMPTY_ARTICLE_TYPES: ArticleTypeResource[] = []
+
 function useArticleTypes() {
   return useQuery({
     queryKey: ['article-types'],
-    queryFn: async (): Promise<ArticleTypeResource[]> => {
+    queryFn: async () => {
       try {
         const res = await articleTypesApi.index()
-        return res.data.data
+        return res.data
       } catch {
-        return []
+        return undefined
       }
     },
   })
@@ -190,7 +192,8 @@ export function SubmitPage() {
       return { ...prev, authors }
     })
 
-  const { data: apiArticleTypes = [] } = useArticleTypes()
+  const { data: articleTypesResponse } = useArticleTypes()
+  const apiArticleTypes = articleTypesResponse?.data ?? EMPTY_ARTICLE_TYPES
   const articleTypeNames =
     apiArticleTypes.length > 0 ? apiArticleTypes.map((t) => t.name) : ARTICLE_TYPE_OPTIONS.map((o) => o.name)
 

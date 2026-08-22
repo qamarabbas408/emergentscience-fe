@@ -41,6 +41,19 @@ function toDisplayTopic(t: TopicResource): ResearchTopic {
   }
 }
 
+function pagerPages(current: number, total: number): (number | '…')[] {
+  const wanted = new Set<number>([1, total, current - 1, current, current + 1])
+  const pages = [...wanted].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b)
+  const out: (number | '…')[] = []
+  let prev = 0
+  for (const n of pages) {
+    if (n - prev > 1) out.push('…')
+    out.push(n)
+    prev = n
+  }
+  return out
+}
+
 export function TopicsPage() {
   // State
   const [searchQuery, setSearchQuery] = useState('')
@@ -65,13 +78,15 @@ export function TopicsPage() {
     return () => clearTimeout(t)
   }, [searchQuery])
 
-  // Live topics: server-side discipline + search; client-side status/sort/pagination
+  // Live topics: server-side discipline + search + pagination; client-side status/sort
   const { data: topicsRes, isPending: topicsPending } = useQuery({
-    queryKey: ['topics', selectedDisciplineSlug, debouncedQuery],
+    queryKey: ['topics', selectedDisciplineSlug, debouncedQuery, currentPage, itemsPerPage],
     queryFn: async () => {
       const res = await topicsApi.index({
         discipline: selectedDisciplineSlug ?? undefined,
         search: debouncedQuery.trim() || undefined,
+        page: currentPage,
+        per_page: itemsPerPage,
       })
       return res.data
     },
@@ -123,12 +138,15 @@ export function TopicsPage() {
     })
   }, [allTopics, statusFilter, sortBy])
 
-  // Pagination calculation
-  const totalPages = Math.max(1, Math.ceil(filteredTopics.length / itemsPerPage))
-  const paginatedTopics = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
-    return filteredTopics.slice(start, start + itemsPerPage)
-  }, [filteredTopics, currentPage, itemsPerPage])
+  // Pagination: server-driven; totals come from response meta
+  const totalTopics = topicsRes?.meta?.total ?? filteredTopics.length
+  const totalPages = Math.max(1, topicsRes?.meta?.last_page ?? Math.ceil(totalTopics / itemsPerPage))
+  const paginatedTopics = filteredTopics
+
+  // Reset to first page whenever filters or page size change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedDisciplineSlug, debouncedQuery, itemsPerPage])
 
   const toggleBookmark = (topicId: string) => {
     setBookmarkedTopicIds((prev) => {
@@ -673,7 +691,7 @@ export function TopicsPage() {
                 <div className="flex items-center justify-between rounded-2xl border border-border bg-white px-5 py-3 shadow-xs text-xs">
                   <span className="text-ink-muted">
                     Page <strong className="text-ink">{currentPage}</strong> of{' '}
-                    <strong className="text-ink">{totalPages}</strong> ({filteredTopics.length} total topics)
+                    <strong className="text-ink">{totalPages}</strong> ({totalTopics.toLocaleString()} total topics)
                   </span>
 
                   <div className="flex items-center gap-2">
@@ -684,19 +702,25 @@ export function TopicsPage() {
                     >
                       ← Previous
                     </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setCurrentPage(num)}
-                        className={`h-8 w-8 rounded-lg font-bold transition-all ${
-                          currentPage === num
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'border border-border text-ink-secondary hover:bg-slate-50'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
+                    {pagerPages(currentPage, totalPages).map((num) =>
+                      num === '…' ? (
+                        <span key={`gap-${num}`} className="px-1 text-ink-muted">
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={num}
+                          onClick={() => setCurrentPage(num)}
+                          className={`h-8 w-8 rounded-lg font-bold transition-all ${
+                            currentPage === num
+                              ? 'bg-primary text-white shadow-xs'
+                              : 'border border-border text-ink-secondary hover:bg-slate-50'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ),
+                    )}
                     <button
                       disabled={currentPage === totalPages}
                       onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
