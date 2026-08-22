@@ -129,7 +129,7 @@ export function Header() {
   }, [])
 
   const onAuthenticated = (authUser: UserResource) => {
-    setToast(`Welcome back, ${authUser.name}!`)
+    setToast(`Welcome back, ${authUser.name ?? 'User'}!`)
   }
 
   const signOut = () => {
@@ -464,11 +464,11 @@ export function Header() {
                   aria-expanded={profileOpen}
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-white shadow-xs">
-                    {user.name.charAt(0).toUpperCase()}
+                    {(user.name ?? '').charAt(0).toUpperCase()}
                   </span>
                   <span className="hidden text-left leading-tight sm:block">
                     <span className="flex items-center gap-1 text-xs font-bold text-slate-900">
-                      {user.name}
+                      {user.name ?? 'User'}
                       <span title="Verified ORCID account" className="inline-flex">
                         <CheckCircle2 className="h-3.5 w-3.5 text-[#A6CE39]" />
                       </span>
@@ -492,7 +492,7 @@ export function Header() {
                       className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-2xl border border-border bg-white p-1.5 shadow-dropdown"
                     >
                       <div className="border-b border-slate-100 px-3.5 py-3">
-                        <p className="text-xs font-bold text-slate-900">{user.name}</p>
+                        <p className="text-xs font-bold text-slate-900">{user.name ?? 'User'}</p>
                         <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
                           <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#A6CE39] text-[8px] font-black text-white">
                             iD
@@ -631,10 +631,10 @@ export function Header() {
                       <div className="rounded-xl bg-slate-50 p-3">
                         <div className="flex items-center gap-2">
                           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-                            {user.name.charAt(0)}
+                            {(user.name ?? '').charAt(0)}
                           </span>
                           <div>
-                            <p className="text-xs font-bold text-slate-900">{user.name}</p>
+                            <p className="text-xs font-bold text-slate-900">{user.name ?? 'User'}</p>
                             <p className="text-[10px] text-slate-500">{user.email}</p>
                           </div>
                         </div>

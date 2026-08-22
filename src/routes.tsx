@@ -7,6 +7,7 @@ import { TopicsPage } from './pages/TopicsPage'
 import { SubmitPage } from './pages/SubmitPage'
 import { AboutPage } from './pages/AboutPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+// import { ProtectedRoute } from './components/ProtectedRoute'
 
 export function AppRoutes() {
   return useRoutes([
@@ -16,6 +17,8 @@ export function AppRoutes() {
     { path: appRoutes.topics, element: <TopicsPage /> },
     { path: appRoutes.submit, element: <SubmitPage /> },
     { path: appRoutes.about, element: <AboutPage /> },
+    // { path: appRoutes.submit, element: <ProtectedRoute><SubmitPage /></ProtectedRoute> },
+    // { path: appRoutes.profile.index, element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
     { path: '*', element: <NotFoundPage /> },
   ])
 }
